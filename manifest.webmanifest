@@ -1,7 +1,7 @@
 {
-  "name": "SPY 0DTE Signal v6.1",
+  "name": "SPY 0DTE Signal v6.2",
   "short_name": "SPY 0DTE",
-  "description": "SPY 0DTE専用の方向・価格・鮮度・時間帯判定PWA",
+  "description": "SPY 0DTE専用のエントリー・POSITION・RUNNER・EXIT管理PWA",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
