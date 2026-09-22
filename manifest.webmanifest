@@ -1,7 +1,7 @@
 {
-  "name": "SPY 0DTE Signal",
+  "name": "SPY 0DTE Signal v6.1",
   "short_name": "SPY 0DTE",
-  "description": "SPY 0DTEのシグナル・価格条件・検証ログを確認するPWA",
+  "description": "SPY 0DTE専用の方向・価格・鮮度・時間帯判定PWA",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,17 +9,7 @@
   "theme_color": "#090d12",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ]
 }

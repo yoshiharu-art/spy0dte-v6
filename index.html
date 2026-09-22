@@ -4,114 +4,61 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#090d12">
-<title>SPY 0DTE v6</title>
-
+<title>SPY 0DTE v6.1</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#090d12">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SPY 0DTE">
 <link rel="apple-touch-icon" href="icon-192.png">
-
 <style>
-:root{
-  --bg:#090d12;--card:#101720;--card2:#0d131b;--line:#223040;--text:#dce8f3;
-  --muted:#7f92a7;--good:#55d88a;--warn:#f4c152;--bad:#ff6b7a;--blue:#69b7ff;
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.wrap{max-width:780px;margin:auto;padding:14px 12px 80px}
-h1,h2,h3,p{margin:0}
-.header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
-.kicker{font-size:10px;letter-spacing:2px;color:var(--good);opacity:.8}
-h1{font-size:20px;margin-top:3px}
-.badge{font-size:10px;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:12px;padding:11px}
-.label{font-size:9px;color:var(--muted);letter-spacing:1px}
-.value{font-size:19px;font-weight:800;margin-top:4px}
-.small{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.55}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
-.good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)} .blue{color:var(--blue)}
-.sec{margin-top:12px}
-.sec-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
-.sec-title h2{font-size:12px;letter-spacing:1px}
-.scenarios{display:flex;gap:6px;overflow:auto;padding-bottom:3px}
-button{font:inherit}
-.btn{border:1px solid var(--line);background:#0d151e;color:var(--text);padding:8px 10px;border-radius:9px;font-size:10px;white-space:nowrap}
-.btn:active{transform:scale(.98)}
-.btn-primary{background:rgba(85,216,138,.10);border-color:rgba(85,216,138,.55);color:var(--good)}
-.btn-danger{background:rgba(255,107,122,.08);border-color:rgba(255,107,122,.5);color:var(--bad)}
-.signal{border-width:2px}
-.signal.buy{border-color:rgba(85,216,138,.65)}
-.signal.watch{border-color:rgba(244,193,82,.65)}
-.signal.no{border-color:rgba(255,107,122,.55)}
-.sig-row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
-.sig-big{font-size:25px;font-weight:900;margin-top:3px}
-.score{font-size:30px;font-weight:900;text-align:right}
-.reasons{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:10px}
-.reason{border:1px solid var(--line);border-radius:8px;padding:7px 8px;font-size:9px;color:var(--muted)}
-.reason.pass{border-color:rgba(85,216,138,.35);color:#a8e9c2}
-.reason.fail{border-color:rgba(255,107,122,.28);color:#d89ca4}
-.option-table{width:100%;border-collapse:collapse;font-size:10px;margin-top:6px}
-.option-table td{padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}
-.option-table td:last-child{text-align:right;font-weight:700}
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}
-.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}
-.action.lock{opacity:.45}
-.banner{padding:8px 10px;border-radius:8px;font-size:9px;margin-bottom:8px;border:1px solid var(--line);color:var(--muted)}
-.banner.stale{border-color:rgba(255,107,122,.55);color:var(--bad);background:rgba(255,107,122,.06)}
-.log{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);padding:8px 0;font-size:9px}
-.log:last-child{border-bottom:0}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:10}
-.modal.on{display:flex}
-.sheet{width:min(760px,100%);background:#101720;border:1px solid var(--line);border-radius:16px;padding:14px 14px 18px}
-.ticket{background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;line-height:1.8;font-size:11px}
-.flex{display:flex;gap:8px}
-.flex>*{flex:1}
-.note{font-size:9px;color:var(--muted);line-height:1.6;margin-top:7px}
-@media(max-width:560px){
- .grid4{grid-template-columns:1fr 1fr}
- .grid2{grid-template-columns:1fr}
- .reasons{grid-template-columns:1fr}
-}
+:root{--bg:#090d12;--card:#101720;--card2:#0d131b;--line:#223040;--text:#dce8f3;--muted:#7f92a7;--good:#55d88a;--warn:#f4c152;--bad:#ff6b7a;--blue:#69b7ff}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.wrap{max-width:780px;margin:auto;padding:14px 12px 80px}.header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
+.kicker{font-size:10px;letter-spacing:2px;color:var(--good);opacity:.85}h1{font-size:20px;margin:3px 0 0}.badge{font-size:10px;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:12px;padding:11px}
+.label{font-size:9px;color:var(--muted);letter-spacing:1px}.value{font-size:19px;font-weight:800;margin-top:4px}.small{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.55}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}.sec{margin-top:12px}.sec-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}.sec-title h2{font-size:12px;letter-spacing:1px;margin:0}
+.scenarios{display:flex;gap:6px;overflow:auto;padding-bottom:3px}button{font:inherit}.btn{border:1px solid var(--line);background:#0d151e;color:var(--text);padding:8px 10px;border-radius:9px;font-size:10px;white-space:nowrap}.btn-primary{background:rgba(85,216,138,.10);border-color:rgba(85,216,138,.55);color:var(--good)}.btn-danger{background:rgba(255,107,122,.08);border-color:rgba(255,107,122,.5);color:var(--bad)}
+.signal{border-width:2px}.signal.buy{border-color:rgba(85,216,138,.65)}.signal.watch{border-color:rgba(244,193,82,.65)}.signal.no{border-color:rgba(255,107,122,.55)}
+.sig-row{display:flex;justify-content:space-between;gap:10px}.sig-big{font-size:24px;font-weight:900;margin-top:3px}.score{font-size:30px;font-weight:900;text-align:right}
+.reasons{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:10px}.reason{border:1px solid var(--line);border-radius:8px;padding:7px 8px;font-size:9px;color:var(--muted)}.reason.pass{border-color:rgba(85,216,138,.35);color:#a8e9c2}.reason.fail{border-color:rgba(255,107,122,.28);color:#d89ca4}.reason.warn{border-color:rgba(244,193,82,.35);color:#e6cf94}
+.option-table{width:100%;border-collapse:collapse;font-size:10px}.option-table td{padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}.option-table td:last-child{text-align:right;font-weight:700}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}.action.lock{opacity:.45}
+.banner{padding:8px 10px;border-radius:8px;font-size:9px;margin-bottom:8px;border:1px solid var(--line);color:var(--muted)}.banner.stale{border-color:rgba(255,107,122,.55);color:var(--bad);background:rgba(255,107,122,.06)}
+.log{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);padding:8px 0;font-size:9px}.note{font-size:9px;color:var(--muted);line-height:1.6;margin-top:7px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:10}.modal.on{display:flex}.sheet{width:min(760px,100%);background:#101720;border:1px solid var(--line);border-radius:16px;padding:14px}.ticket{white-space:pre-wrap;background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;line-height:1.8;font-size:11px}.flex{display:flex;gap:8px}.flex>*{flex:1}
+@media(max-width:560px){.grid4{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
     <div>
-      <div class="kicker">SPY 0DTE · V6 PROTOTYPE</div>
-      <h1>Signal → Webull確認</h1>
-      <div class="small">方向当てではなく「今このオプションを買う価値があるか」を判定</div>
+      <div class="kicker">SPY 0DTE · V6.1 PAPER</div>
+      <h1>0DTE専用 Signal → Webull確認</h1>
+      <div class="small">当日満期のみ。方向＋価格＋鮮度＋時間帯で判定</div>
     </div>
     <div class="badge" id="modeBadge">DEMO</div>
   </div>
 
-  
-  <div id="installWrap" style="display:none;margin-bottom:10px">
-    <button id="installBtn" class="btn btn-primary" style="width:100%;padding:11px">ホーム画面にインストール</button>
-  </div>
-
-  <div id="staleBanner" class="banner">DATA OK · シグナル判定可能</div>
+  <div id="staleBanner" class="banner">DEMO · 0DTE V6.1</div>
 
   <div class="grid4">
-    <div class="card"><div class="label">SPY</div><div id="spy" class="value">667.18</div><div id="spyAge" class="small">● 0.4s</div></div>
-    <div class="card"><div class="label">VIX</div><div id="vix" class="value">19.40</div><div id="vixAge" class="small">● 0.7s</div></div>
+    <div class="card"><div class="label">SPY</div><div id="spy" class="value">667.18</div><div id="spyAge" class="small">● --</div></div>
+    <div class="card"><div id="volLabel" class="label">VIXY proxy</div><div id="vix" class="value">19.40</div><div id="vixAge" class="small">● --</div></div>
     <div class="card"><div class="label">VWAP差</div><div id="vwapDev" class="value">-0.14%</div><div id="vwapSlope" class="small">VWAP slope ↓</div></div>
-    <div class="card"><div class="label">OPTIONS</div><div id="optAgeBig" class="value">0.6s</div><div id="optAge" class="small">● quote fresh</div></div>
+    <div class="card"><div class="label">ET BAND</div><div id="band" class="value">MID</div><div id="minutesToClose" class="small">残り --分</div></div>
   </div>
 
   <div class="sec">
-    <div class="sec-title"><h2>DEMO SCENARIO</h2><span class="small">タップで動作確認</span></div>
+    <div class="sec-title"><h2>DEMO</h2><span class="small">V6.1ゲート確認</span></div>
     <div class="scenarios">
-      <button class="btn btn-primary" onclick="loadScenario('put')">PUT BUY</button>
-      <button class="btn" onclick="loadScenario('call')">CALL BUY</button>
-      <button class="btn" onclick="loadScenario('chase')">追いかけ禁止</button>
-      <button class="btn" onclick="loadScenario('neutral')">NO TRADE</button>
-      <button class="btn btn-danger" onclick="loadScenario('stale')">古いデータ</button>
+      <button class="btn btn-primary" onclick="loadScenario('buy')">BUY</button>
+      <button class="btn" onclick="loadScenario('watch')">WATCH</button>
+      <button class="btn" onclick="loadScenario('chase')">CHASE</button>
+      <button class="btn" onclick="loadScenario('stale')">STALE</button>
+      <button class="btn" onclick="loadScenario('time')">TIME LOCK</button>
+      <button class="btn btn-danger" onclick="loadScenario('liq')">LIQUIDITY</button>
     </div>
   </div>
 
@@ -125,7 +72,7 @@ button{font:inherit}
           <div id="candidate" class="small">667 PUT · 0DTE</div>
         </div>
         <div>
-          <div class="label" style="text-align:right">SETUP SCORE</div>
+          <div class="label" style="text-align:right">DIRECTION SCORE</div>
           <div id="score" class="score">100</div>
           <div id="priceFlag" class="small" style="text-align:right">価格条件 ○</div>
         </div>
@@ -135,44 +82,39 @@ button{font:inherit}
   </div>
 
   <div class="sec">
-    <div class="sec-title"><h2>OPTION CANDIDATE</h2><span class="small">実売価格を想定</span></div>
+    <div class="sec-title"><h2>0DTE OPTION</h2><span class="small">当日満期のみ</span></div>
     <div class="card">
       <table class="option-table">
-        <tr><td>Bid</td><td id="bid">$0.70</td></tr>
-        <tr><td>Ask</td><td id="ask">$0.73</td></tr>
+        <tr><td>Expiration</td><td id="expiration">TODAY</td></tr>
+        <tr><td>Bid / Ask</td><td id="bidask">$0.70 / $0.73</td></tr>
         <tr><td>Mid</td><td id="mid">$0.715</td></tr>
-        <tr><td>Spread</td><td id="spread">4.2%</td></tr>
+        <tr><td>Spread</td><td id="spread">4.2% / $0.03</td></tr>
         <tr><td>Delta</td><td id="delta">-0.34</td></tr>
         <tr><td>Gamma</td><td id="gamma">0.081</td></tr>
         <tr><td>IV</td><td id="iv">24.2%</td></tr>
         <tr><td>Volume / OI</td><td id="voloi">860 / 2,180</td></tr>
+        <tr><td>Option quote age</td><td id="optionAge">0.6s</td></tr>
       </table>
       <div class="actions">
-        <button id="freezeBtn" class="action" onclick="freezeSignal()">予測を固定</button>
+        <button class="action" onclick="freezeSignal()">予測を固定</button>
         <button id="webullBtn" class="action buy" onclick="openTicket()">Webullで購入確認</button>
       </div>
-      <div class="note">
-        この試作版は注文しません。本番版ではボタンを Webull の single-leg option order instruction に差し替え、
-        Webull APP / Desktop 側で最終確認する想定です。
-      </div>
+      <div class="note">自動発注はしません。V6.1はPaper検証用。Webullで最終確認して手動購入する設計です。</div>
     </div>
   </div>
 
   <div class="sec">
-    <div class="sec-title"><h2>FORWARD LOG</h2><button class="btn" onclick="clearLogs()">ログ削除</button></div>
-    <div class="card" id="logs"></div>
-  </div>
-
-  <div class="sec">
-    <div class="sec-title"><h2>LIVE接続</h2></div>
+    <div class="sec-title"><h2>LIVE接続</h2><span class="small">Vercel</span></div>
     <div class="card">
-      <div class="small">
-        フロントにはWebullのApp Secretを置きません。LIVE化するときは
-        <b>/api/spy0dte/snapshot</b> を自分のクラウド側に置き、そこからSPY/VIX/Option Snapshotを返します。
-      </div>
-      <button class="btn" style="margin-top:9px;width:100%" onclick="tryLive()">LIVEバックエンド疎通テスト</button>
+      <div class="small">Backend: https://spy0dte-live-backend-v2.vercel.app/</div>
+      <button class="btn btn-primary" style="width:100%;margin-top:9px" onclick="tryLive()">LIVE接続開始</button>
       <div id="liveStatus" class="small"></div>
     </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title"><h2>PAPER LOG</h2><button class="btn" onclick="clearLogs()">ログ削除</button></div>
+    <div class="card" id="logs"></div>
   </div>
 </div>
 
@@ -184,234 +126,118 @@ button{font:inherit}
       <button class="btn" onclick="copyTicket()">注文票をコピー</button>
       <button class="btn btn-primary" onclick="recordPaper()">Paper Entryとして記録</button>
     </div>
-    <div class="note">
-      本番連携では「注文票コピー」ではなく Webull の注文指示APIへ送信し、Webull側で確認して発注する形にします。
-    </div>
   </div>
 </div>
 
 <script>
-const scenarios = {
-  put:{
-    spy:667.18, open:668.42, vwap:668.12, vwapSlope:-1, mom5:-0.31, vix:19.40, vixChange:0.62,
-    side:'PUT', strike:667, bid:0.70, ask:0.73, delta:-0.34, gamma:0.081, iv:24.2, volume:860, oi:2180, age:0.6
-  },
-  call:{
-    spy:669.24, open:668.20, vwap:668.46, vwapSlope:1, mom5:0.28, vix:18.10, vixChange:-0.48,
-    side:'CALL', strike:669, bid:0.74, ask:0.78, delta:0.36, gamma:0.076, iv:22.9, volume:1030, oi:2540, age:0.5
-  },
-  chase:{
-    spy:663.78, open:668.30, vwap:667.20, vwapSlope:-1, mom5:-0.64, vix:21.80, vixChange:1.40,
-    side:'PUT', strike:664, bid:1.12, ask:1.22, delta:-0.47, gamma:0.069, iv:31.8, volume:1920, oi:3310, age:0.7
-  },
-  neutral:{
-    spy:668.04, open:668.12, vwap:668.00, vwapSlope:0, mom5:0.02, vix:18.75, vixChange:0.03,
-    side:'PUT', strike:668, bid:0.63, ask:0.72, delta:-0.31, gamma:0.080, iv:23.6, volume:330, oi:980, age:0.8
-  },
-  stale:{
-    spy:667.18, open:668.42, vwap:668.12, vwapSlope:-1, mom5:-0.31, vix:19.40, vixChange:0.62,
-    side:'PUT', strike:667, bid:0.70, ask:0.73, delta:-0.34, gamma:0.081, iv:24.2, volume:860, oi:2180, age:13.2
-  }
+const API_URL='https://spy0dte-live-backend-v2.vercel.app/';
+
+const scenarios={
+ buy:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.40,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.70,ask:0.73,delta:-0.34,gamma:0.081,iv:24.2,volume:860,oi:2180,optionAge:0.6,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'},
+ watch:{spy:667.30,open:668.20,vwap:668.10,vwapSlope:-1,mom5:-0.20,vix:19.2,vixChange:0.4,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.42,ask:0.45,delta:-0.27,gamma:0.090,iv:25.1,volume:500,oi:900,optionAge:0.8,age:0.8,timeBand:'LATE',minutesToClose:70,expiration:'TODAY'},
+ chase:{spy:664.30,open:668.30,vwap:667.60,vwapSlope:-1,mom5:-0.72,vix:20.2,vixChange:1.0,volLabel:'VIXY proxy',side:'PUT',strike:665,bid:1.10,ask:1.16,delta:-0.44,gamma:0.070,iv:31.8,volume:1900,oi:3300,optionAge:0.7,age:0.7,timeBand:'MID',minutesToClose:150,expiration:'TODAY'},
+ stale:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.4,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.70,ask:0.73,delta:-0.34,gamma:0.081,iv:24.2,volume:860,oi:2180,optionAge:4.2,age:4.2,timeBand:'MID',minutesToClose:180,expiration:'TODAY'},
+ time:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.4,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.70,ask:0.73,delta:-0.34,gamma:0.081,iv:24.2,volume:860,oi:2180,optionAge:0.6,age:0.6,timeBand:'TIME_LOCK',minutesToClose:25,expiration:'TODAY'},
+ liq:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.4,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.60,ask:0.74,delta:-0.34,gamma:0.081,iv:24.2,volume:70,oi:200,optionAge:0.7,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'}
 };
 
-let state = structuredClone(scenarios.put);
-let frozen = null;
-let ageTimer = null;
+let state=structuredClone(scenarios.buy), frozen=null, liveTimer=null;
 
-function pct(x){ return (x>=0?'+':'')+x.toFixed(2)+'%'; }
-function money(x){ return '$'+x.toFixed(2); }
-function ageClass(a){ return a<=2?'good':a<=5?'warn':'bad'; }
-
+function money(x){return Number.isFinite(Number(x))?'$'+Number(x).toFixed(2):'--'}
+function pct(x){return Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+Number(x).toFixed(2)+'%':'--'}
+function deltaRange(band){if(band==='EARLY')return [0.25,0.40];if(band==='MID')return [0.30,0.45];if(band==='LATE')return [0.35,0.50];return null}
 function evaluate(s){
-  const bearish = [
-    ['SPY < VWAP', s.spy < s.vwap],
-    ['VWAP slope ↓', s.vwapSlope < 0],
-    ['5分 momentum ↓', s.mom5 < -0.10],
-    ['VIX ↑', s.vixChange > 0.15],
-    ['SPY < 始値', s.spy < s.open]
-  ];
-  const bullish = [
-    ['SPY > VWAP', s.spy > s.vwap],
-    ['VWAP slope ↑', s.vwapSlope > 0],
-    ['5分 momentum ↑', s.mom5 > 0.10],
-    ['VIX ↓', s.vixChange < -0.15],
-    ['SPY > 始値', s.spy > s.open]
-  ];
-  const bScore = bearish.filter(x=>x[1]).length * 20;
-  const cScore = bullish.filter(x=>x[1]).length * 20;
-  const side = bScore>cScore?'PUT':cScore>bScore?'CALL':'NONE';
-  const score = Math.max(bScore,cScore);
-  const mid=(s.bid+s.ask)/2;
-  const spread = mid>0 ? (s.ask-s.bid)/mid*100 : 999;
-  const dev = (s.spy-s.vwap)/s.vwap*100;
-  const chase = Math.abs(dev) > 0.45;
-  const liquid = spread <= 10 && s.volume >= 100 && s.oi >= 300;
-  const fresh = s.age <= 5;
-  const overheat = s.iv >= 35 || (Math.abs(s.vixChange)>=1.8 && s.iv>=30);
-  const deltaOk = Math.abs(s.delta)>=0.22 && Math.abs(s.delta)<=0.50;
-  let decision='NO TRADE';
-  if(fresh && side!=='NONE' && score>=80 && liquid && deltaOk && !chase && !overheat) decision = side+' BUY';
-  else if(fresh && side!=='NONE' && score>=60 && liquid && deltaOk) decision = side+' WATCH';
-  const reasons = (side==='PUT'?bearish:side==='CALL'?bullish:bearish).map(x=>({label:x[0],pass:x[1]}));
-  reasons.push({label:'Spread ≤ 10%',pass:liquid});
-  reasons.push({label:'Delta 0.22〜0.50',pass:deltaOk});
-  reasons.push({label:'追いかけ禁止',pass:!chase});
-  reasons.push({label:'Quote ≤ 5秒',pass:fresh});
-  reasons.push({label:'IV過熱なし',pass:!overheat});
-  return {side,score,decision,reasons,spread,dev,mid,chase,liquid,fresh,overheat,deltaOk};
+ const hasVol=Number.isFinite(Number(s.vixChange)), volName=s.volLabel||'VOL';
+ const bearish=[['SPY < VWAP',s.spy<s.vwap],['VWAP slope ↓',s.vwapSlope<0],['5分 momentum ↓',s.mom5<-0.10],[volName+' ↑',hasVol&&s.vixChange>0.15],['SPY < 始値',s.spy<s.open]];
+ const bullish=[['SPY > VWAP',s.spy>s.vwap],['VWAP slope ↑',s.vwapSlope>0],['5分 momentum ↑',s.mom5>0.10],[volName+' ↓',hasVol&&s.vixChange<-0.15],['SPY > 始値',s.spy>s.open]];
+ const b=bearish.filter(x=>x[1]).length*20,c=bullish.filter(x=>x[1]).length*20;
+ const side=b>c?'PUT':c>b?'CALL':'NONE', score=Math.max(b,c);
+ const bid=Number(s.bid),ask=Number(s.ask),mid=(bid+ask)/2;
+ const spreadAbs=ask-bid,spreadPct=mid>0?spreadAbs/mid*100:999;
+ const dev=((Number(s.spy)-Number(s.vwap))/Number(s.vwap))*100;
+ const quoteAge=Number(s.optionAge??s.age??99);
+ const band=s.timeBand||'TIME_LOCK', dr=deltaRange(band), ad=Math.abs(Number(s.delta));
+ const fresh=quoteAge<=2;
+ const liquid=spreadPct<=8 && spreadAbs<=0.10;
+ const deltaOk=dr?ad>=dr[0]&&ad<=dr[1]:false;
+ const chaseLock=Math.abs(dev)>=0.50;
+ const chaseWatch=Math.abs(dev)>=0.30&&Math.abs(dev)<0.50;
+ const lottery=ask<0.30;
+ let decision='NO TRADE', blocks=[];
+ if(band==='TIME_LOCK'||band==='CLOSED'){decision='TIME LOCK';blocks.push('時間帯ロック')}
+ else if(!fresh){decision='STALE';blocks.push('Quote > 2秒')}
+ else if(!liquid){decision='LIQUIDITY LOCK';blocks.push('Spread > 8% または $0.10')}
+ else if(chaseLock){decision='CHASE LOCK';blocks.push('|SPY-VWAP| ≥ 0.50%')}
+ else if(side==='NONE'||score<60){decision='NO TRADE';blocks.push('方向スコア不足')}
+ else if(!deltaOk){decision=side+' WATCH';blocks.push('時間帯Delta帯の外')}
+ else if(lottery){decision='LOTTERY FLAG';blocks.push('Ask < $0.30')}
+ else if(chaseWatch){decision=side+' WATCH';blocks.push('VWAP乖離 0.30–0.50%')}
+ else if(score>=80){decision=side+' BUY'}
+ else decision=side+' WATCH';
+ const base=(side==='PUT'?bearish:side==='CALL'?bullish:bearish).map(x=>({label:x[0],state:x[1]?'pass':'fail'}));
+ base.push({label:'Quote ≤ 2秒',state:fresh?'pass':'fail'});
+ base.push({label:'Spread ≤ 8% & $0.10',state:liquid?'pass':'fail'});
+ base.push({label:dr?`Delta ${dr[0].toFixed(2)}–${dr[1].toFixed(2)}`:'Delta TIME LOCK',state:deltaOk?'pass':'fail'});
+ base.push({label:'追いかけ禁止',state:chaseLock?'fail':chaseWatch?'warn':'pass'});
+ base.push({label:'Ask ≥ $0.30',state:lottery?'warn':'pass'});
+ return {side,score,decision,reasons:base,spreadAbs,spreadPct,dev,mid,band,deltaOk,fresh,liquid,blocks}
 }
-
 function render(){
-  const e=evaluate(state);
-  document.getElementById('spy').textContent=state.spy.toFixed(2);
-  document.getElementById('vix').textContent=state.vix.toFixed(2);
-  document.getElementById('vwapDev').textContent=pct(e.dev);
-  document.getElementById('vwapSlope').textContent='VWAP slope '+(state.vwapSlope<0?'↓':state.vwapSlope>0?'↑':'→');
-  document.getElementById('optAgeBig').textContent=state.age.toFixed(1)+'s';
-  for(const id of ['spyAge','vixAge','optAge']){
-    const el=document.getElementById(id);
-    el.className='small '+ageClass(state.age);
-    el.textContent='● '+state.age.toFixed(1)+'s';
-  }
-  const banner=document.getElementById('staleBanner');
-  banner.className='banner'+(e.fresh?'':' stale');
-  banner.textContent=e.fresh?'DATA OK · シグナル判定可能':'DATA STALE · BUY判定ロック';
-  const card=document.getElementById('signalCard');
-  card.className='card signal '+(e.decision.includes('BUY')?'buy':e.decision.includes('WATCH')?'watch':'no');
-  const d=document.getElementById('decision');
-  d.textContent=e.decision;
-  d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision.includes('WATCH')?'warn':'bad');
-  document.getElementById('score').textContent=e.score;
-  document.getElementById('candidate').textContent=(e.side==='NONE'?'方向未確定':state.strike+' '+(e.side==='NONE'?state.side:e.side)+' · 0DTE');
-  document.getElementById('priceFlag').textContent=(e.liquid&&e.deltaOk&&!e.overheat?'価格条件 ○':'価格条件 △');
-  document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.pass?'pass':'fail'}">${r.pass?'○':'×'} ${r.label}</div>`).join('');
-  document.getElementById('bid').textContent=money(state.bid);
-  document.getElementById('ask').textContent=money(state.ask);
-  document.getElementById('mid').textContent='$'+e.mid.toFixed(3);
-  document.getElementById('spread').textContent=e.spread.toFixed(1)+'%';
-  document.getElementById('delta').textContent=state.delta.toFixed(2);
-  document.getElementById('gamma').textContent=state.gamma.toFixed(3);
-  document.getElementById('iv').textContent=state.iv.toFixed(1)+'%';
-  document.getElementById('voloi').textContent=state.volume.toLocaleString()+' / '+state.oi.toLocaleString();
-  const wb=document.getElementById('webullBtn');
-  const canBuy=e.decision.includes('BUY') && e.fresh;
-  wb.className='action '+(canBuy?'buy':'lock');
-  wb.disabled=!canBuy;
-  wb.textContent=canBuy?'Webullで購入確認':'Webull連携ロック';
-  document.getElementById('frozenTag').textContent=frozen?'FROZEN '+new Date(frozen.ts).toLocaleTimeString('ja-JP'):'';
+ const e=evaluate(state);
+ document.getElementById('spy').textContent=Number(state.spy).toFixed(2);
+ document.getElementById('volLabel').textContent=state.volLabel||'VOL';
+ document.getElementById('vix').textContent=Number.isFinite(Number(state.vix))?Number(state.vix).toFixed(2):'--';
+ document.getElementById('vwapDev').textContent=pct(e.dev);
+ document.getElementById('vwapSlope').textContent='VWAP slope '+(state.vwapSlope<0?'↓':state.vwapSlope>0?'↑':'→');
+ document.getElementById('band').textContent=e.band;
+ document.getElementById('minutesToClose').textContent=Number.isFinite(Number(state.minutesToClose))?'残り '+Math.max(0,Math.round(state.minutesToClose))+'分':'残り --分';
+ document.getElementById('spyAge').textContent='● '+Number(state.age??99).toFixed(1)+'s';
+ document.getElementById('vixAge').textContent='● '+Number(state.age??99).toFixed(1)+'s';
+ const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
+ document.getElementById('score').textContent=e.score;
+ document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`${state.strike??'--'} ${e.side} · 0DTE`;
+ document.getElementById('priceFlag').textContent=e.decision.includes('BUY')?'価格条件 ○':'価格条件 △';
+ const card=document.getElementById('signalCard');card.className='card signal '+(e.decision.includes('BUY')?'buy':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'watch':'no');
+ document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${r.label}</div>`).join('');
+ document.getElementById('expiration').textContent=state.expiration||'TODAY';
+ document.getElementById('bidask').textContent=money(state.bid)+' / '+money(state.ask);
+ document.getElementById('mid').textContent='$'+e.mid.toFixed(3);
+ document.getElementById('spread').textContent=e.spreadPct.toFixed(1)+'% / $'+e.spreadAbs.toFixed(2);
+ document.getElementById('delta').textContent=Number.isFinite(Number(state.delta))?Number(state.delta).toFixed(2):'--';
+ document.getElementById('gamma').textContent=Number.isFinite(Number(state.gamma))?Number(state.gamma).toFixed(3):'--';
+ document.getElementById('iv').textContent=Number.isFinite(Number(state.iv))?Number(state.iv).toFixed(1)+'%':'--';
+ document.getElementById('voloi').textContent=Number(state.volume||0).toLocaleString()+' / '+(state.oi==null?'—':Number(state.oi).toLocaleString());
+ document.getElementById('optionAge').textContent=Number(state.optionAge??state.age??99).toFixed(1)+'s';
+ const wb=document.getElementById('webullBtn'),canBuy=e.decision.includes('BUY');
+ wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent=canBuy?'Webullで購入確認':'Webull連携ロック';
+ const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(document.getElementById('modeBadge').textContent==='LIVE'?'LIVE':'DEMO')+' · '+e.decision;
+ document.getElementById('frozenTag').textContent=frozen?'FROZEN '+new Date(frozen.ts).toLocaleTimeString('ja-JP'):'';
 }
-
-function loadScenario(name){
-  state=structuredClone(scenarios[name]);
-  frozen=null;
-  render();
+function loadScenario(n){state=structuredClone(scenarios[n]);frozen=null;document.getElementById('modeBadge').textContent='DEMO';render()}
+function freezeSignal(){const e=evaluate(state);frozen={ts:Date.now(),state:structuredClone(state),eval:e};saveLog({type:'FREEZE',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,iv:state.iv})}
+function orderText(){const e=evaluate(state);return ['SPY 0DTE V6.1 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`Decision: ${e.decision}`].join('\n')}
+function openTicket(){document.getElementById('ticket').textContent=orderText();document.getElementById('modal').classList.add('on')}
+function closeTicket(){document.getElementById('modal').classList.remove('on')}
+async function copyTicket(){try{await navigator.clipboard.writeText(orderText());alert('注文票をコピーしました')}catch(e){alert(orderText())}}
+function getLogs(){try{return JSON.parse(localStorage.getItem('spy0dte-v61-logs')||'[]')}catch(e){return[]}}
+function saveLog(x){const a=getLogs();a.unshift({ts:Date.now(),...x});localStorage.setItem('spy0dte-v61-logs',JSON.stringify(a.slice(0,100)));renderLogs();render()}
+function recordPaper(){const e=evaluate(state);saveLog({type:'PAPER',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5});closeTicket()}
+function clearLogs(){localStorage.removeItem('spy0dte-v61-logs');renderLogs()}
+function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.1ログはありません。</div>';return}el.innerHTML=a.map(x=>`<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''} · ${x.band||''}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`).join('')}
+async function fetchLive(){
+ const st=document.getElementById('liveStatus');st.textContent='接続中...';
+ try{
+   const r=await fetch(API_URL,{cache:'no-store'}),data=await r.json();
+   if(!r.ok||data.ok===false)throw new Error(data.error||('HTTP '+r.status));
+   Object.assign(state,data);
+   document.getElementById('modeBadge').textContent=data.liveReady?'LIVE':'PARTIAL';
+   st.textContent=(data.liveReady?'LIVE接続中':'一部接続')+(data.limitations?.length?' · '+data.limitations.join(' / '):'');
+   st.className='small '+(data.liveReady?'good':'warn');render();return true;
+ }catch(e){document.getElementById('modeBadge').textContent='DEMO';st.textContent='LIVE未接続：'+e.message;st.className='small warn';return false}
 }
-
-function freezeSignal(){
-  const e=evaluate(state);
-  frozen={ts:Date.now(),state:structuredClone(state),eval:e};
-  document.getElementById('frozenTag').textContent='FROZEN '+new Date(frozen.ts).toLocaleTimeString('ja-JP');
-  saveLog({type:'FREEZE', decision:e.decision, strike:state.strike, side:e.side, ask:state.ask, score:e.score});
-}
-
-function orderText(){
-  const e=evaluate(state);
-  const side=e.side==='NONE'?state.side:e.side;
-  return [
-    'SPY 0DTE ORDER TICKET',
-    'BUY TO OPEN',
-    `SPY ${state.strike} ${side}`,
-    'Expiry: TODAY',
-    'Qty: 1',
-    `Limit: <= ${money(state.ask)}`,
-    `Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,
-    `Setup score: ${e.score}`,
-    `Quote age: ${state.age.toFixed(1)}s`,
-    `Decision: ${e.decision}`
-  ].join('\n');
-}
-
-function openTicket(){
-  document.getElementById('ticket').textContent=orderText();
-  document.getElementById('modal').classList.add('on');
-}
-function closeTicket(){document.getElementById('modal').classList.remove('on');}
-async function copyTicket(){
-  try{await navigator.clipboard.writeText(orderText());alert('注文票をコピーしました');}
-  catch(e){alert(orderText());}
-}
-function recordPaper(){
-  const e=evaluate(state);
-  saveLog({type:'PAPER', decision:e.decision, strike:state.strike, side:e.side, ask:state.ask, score:e.score});
-  closeTicket();
-}
-function getLogs(){try{return JSON.parse(localStorage.getItem('spy0dte-v6-logs')||'[]')}catch(e){return[]}}
-function saveLog(x){
-  const logs=getLogs();
-  logs.unshift({ts:Date.now(),...x});
-  localStorage.setItem('spy0dte-v6-logs',JSON.stringify(logs.slice(0,50)));
-  renderLogs();
-}
-function clearLogs(){localStorage.removeItem('spy0dte-v6-logs');renderLogs()}
-function renderLogs(){
-  const logs=getLogs(), el=document.getElementById('logs');
-  if(!logs.length){el.innerHTML='<div class="small">まだログはありません。予測固定またはPaper Entryで保存されます。</div>';return}
-  el.innerHTML=logs.map(x=>`<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''} · $${x.ask??'-'}</div></div>`).join('');
-}
-async function tryLive(){
-  const st=document.getElementById('liveStatus');
-  st.textContent='接続中...';
-  try{
-    const r=await fetch('/api/spy0dte/snapshot',{cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const data=await r.json();
-    Object.assign(state,data);
-    st.textContent='LIVE backend 接続成功';
-    st.className='small good';
-    document.getElementById('modeBadge').textContent='LIVE';
-    render();
-  }catch(e){
-    st.textContent='未接続：試作版では正常です。本番クラウドAPIを追加するとLIVE化できます。';
-    st.className='small warn';
-  }
-}
-clearInterval(ageTimer);
-ageTimer=setInterval(()=>{state.age=Math.min(99,state.age+1);render()},1000);
-render();
-renderLogs();
-
-let deferredInstallPrompt = null;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  const wrap = document.getElementById('installWrap');
-  if (wrap) wrap.style.display = 'block';
-});
-
-const installBtn = document.getElementById('installBtn');
-if (installBtn) {
-  installBtn.addEventListener('click', async () => {
-    if (!deferredInstallPrompt) return;
-    deferredInstallPrompt.prompt();
-    try { await deferredInstallPrompt.userChoice; } catch(e) {}
-    deferredInstallPrompt = null;
-    const wrap = document.getElementById('installWrap');
-    if (wrap) wrap.style.display = 'none';
-  });
-}
-
-window.addEventListener('appinstalled', () => {
-  const wrap = document.getElementById('installWrap');
-  if (wrap) wrap.style.display = 'none';
-});
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
-}
-
+async function tryLive(){const ok=await fetchLive();if(liveTimer)clearInterval(liveTimer);if(ok)liveTimer=setInterval(fetchLive,5000)}
+render();renderLogs();
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
 </script>
 </body>
 </html>
