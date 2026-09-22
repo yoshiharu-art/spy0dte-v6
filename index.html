@@ -245,12 +245,19 @@ function positionCore(s,side){
 function profitFloor(peakPnl){if(peakPnl<100)return null;return peakPnl-Math.max(60,peakPnl*0.40)}
 function updatePositionFromState(){
  if(!position||!position.active)return null;
- const matched=sameContract(state,position);
- if(matched&&Number.isFinite(Number(state.bid))){
-   const bid=Number(state.bid);
-   position.currentBid=bid;
-   position.peakBid=Math.max(Number(position.peakBid||position.entryAsk),bid);
-   position.lowBid=Math.min(Number(position.lowBid||position.entryAsk),bid);
+ const pq=state.positionQuote||null;
+ let matched=false,liveBid=null;
+ if(position.optionSymbol&&pq&&String(pq.optionSymbol)===String(position.optionSymbol)&&Number.isFinite(Number(pq.bid))){
+   matched=true;liveBid=Number(pq.bid);
+ }else if(position.optionSymbol&&String(state.optionSymbol||'')===String(position.optionSymbol)&&Number.isFinite(Number(state.bid))){
+   matched=true;liveBid=Number(state.bid);
+ }else if(!position.optionSymbol&&sameContract(state,position)&&Number.isFinite(Number(state.bid))){
+   matched=true;liveBid=Number(state.bid);
+ }
+ if(matched&&Number.isFinite(liveBid)){
+   position.currentBid=liveBid;
+   position.peakBid=Math.max(Number(position.peakBid||position.entryAsk),liveBid);
+   position.lowBid=Math.min(Number(position.lowBid||position.entryAsk),liveBid);
    position.updatedAt=Date.now();
  }
  const entry=Number(position.entryAsk),current=Number(position.currentBid);
@@ -354,7 +361,7 @@ function getLogs(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}ca
 function saveLog(x){const a=getLogs();a.unshift({ts:Date.now(),...x});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
 function recordPaperEntry(){
  const e=evaluate(state);if(!e.decision.includes('BUY'))return;
- position={active:true,entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
+ position={active:true,entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,optionSymbol:state.optionSymbol||null,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
  persistPosition();updatePositionFromState();
  saveLog({type:'ENTRY',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5});
  closeTicket();render();
@@ -372,7 +379,9 @@ function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a
 async function fetchLive(){
  const st=document.getElementById('liveStatus');st.textContent='接続中...';
  try{
-   const r=await fetch(API_URL,{cache:'no-store'}),data=await r.json();
+   let liveUrl=API_URL;
+   if(position?.active&&position.optionSymbol){const u=new URL(API_URL);u.searchParams.set('position_symbol',position.optionSymbol);liveUrl=u.toString()}
+   const r=await fetch(liveUrl,{cache:'no-store'}),data=await r.json();
    if(!r.ok||data.ok===false)throw new Error(data.error||('HTTP '+r.status));
    Object.assign(state,data);
    document.getElementById('modeBadge').textContent=data.liveReady?'LIVE':'PARTIAL';
