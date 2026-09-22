@@ -1,0 +1,10 @@
+[project]
+name = "spy0dte-live-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "webull-openapi-python-sdk==3.0.2"
+]
+
+[tool.vercel]
+entrypoint = "api:handler"
