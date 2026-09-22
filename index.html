@@ -4,44 +4,46 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#090d12">
-<title>SPY 0DTE v6.1</title>
+<title>SPY 0DTE v6.2</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SPY 0DTE">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-:root{--bg:#090d12;--card:#101720;--card2:#0d131b;--line:#223040;--text:#dce8f3;--muted:#7f92a7;--good:#55d88a;--warn:#f4c152;--bad:#ff6b7a;--blue:#69b7ff}
-*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+:root{--bg:#090d12;--card:#101720;--card2:#0d131b;--line:#223040;--text:#dce8f3;--muted:#7f92a7;--good:#55d88a;--warn:#f4c152;--bad:#ff6b7a;--blue:#69b7ff;--purple:#b891ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .wrap{max-width:780px;margin:auto;padding:14px 12px 80px}.header{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
 .kicker{font-size:10px;letter-spacing:2px;color:var(--good);opacity:.85}h1{font-size:20px;margin:3px 0 0}.badge{font-size:10px;border:1px solid var(--line);padding:5px 8px;border-radius:999px;color:var(--muted)}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:12px;padding:11px}
-.label{font-size:9px;color:var(--muted);letter-spacing:1px}.value{font-size:19px;font-weight:800;margin-top:4px}.small{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.55}
-.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}.sec{margin-top:12px}.sec-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}.sec-title h2{font-size:12px;letter-spacing:1px;margin:0}
-.scenarios{display:flex;gap:6px;overflow:auto;padding-bottom:3px}button{font:inherit}.btn{border:1px solid var(--line);background:#0d151e;color:var(--text);padding:8px 10px;border-radius:9px;font-size:10px;white-space:nowrap}.btn-primary{background:rgba(85,216,138,.10);border-color:rgba(85,216,138,.55);color:var(--good)}.btn-danger{background:rgba(255,107,122,.08);border-color:rgba(255,107,122,.5);color:var(--bad)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:12px;padding:11px}
+.label{font-size:9px;color:var(--muted);letter-spacing:1px}.value{font-size:19px;font-weight:800;margin-top:4px}.bigvalue{font-size:28px;font-weight:900;margin-top:3px}.small{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.55}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}.blue{color:var(--blue)}.purple{color:var(--purple)}.sec{margin-top:12px}.hidden{display:none!important}
+.sec-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}.sec-title h2{font-size:12px;letter-spacing:1px;margin:0}
+.scenarios{display:flex;gap:6px;overflow:auto;padding-bottom:3px}button{font:inherit}.btn{border:1px solid var(--line);background:#0d151e;color:var(--text);padding:8px 10px;border-radius:9px;font-size:10px;white-space:nowrap}.btn-primary{background:rgba(85,216,138,.10);border-color:rgba(85,216,138,.55);color:var(--good)}.btn-danger{background:rgba(255,107,122,.08);border-color:rgba(255,107,122,.5);color:var(--bad)}.btn-warn{background:rgba(244,193,82,.08);border-color:rgba(244,193,82,.5);color:var(--warn)}
 .signal{border-width:2px}.signal.buy{border-color:rgba(85,216,138,.65)}.signal.watch{border-color:rgba(244,193,82,.65)}.signal.no{border-color:rgba(255,107,122,.55)}
-.sig-row{display:flex;justify-content:space-between;gap:10px}.sig-big{font-size:24px;font-weight:900;margin-top:3px}.score{font-size:30px;font-weight:900;text-align:right}
+.position{border-width:2px}.position.runner{border-color:rgba(184,145,255,.7)}.position.hold{border-color:rgba(85,216,138,.5)}.position.risk{border-color:rgba(244,193,82,.65)}.position.exit{border-color:rgba(255,107,122,.75)}
+.sig-row{display:flex;justify-content:space-between;gap:10px}.sig-big{font-size:24px;font-weight:900;margin-top:3px}.score{font-size:30px;font-weight:900;text-align:right}.position-main{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.position-main>div:last-child{text-align:right}
 .reasons{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:10px}.reason{border:1px solid var(--line);border-radius:8px;padding:7px 8px;font-size:9px;color:var(--muted)}.reason.pass{border-color:rgba(85,216,138,.35);color:#a8e9c2}.reason.fail{border-color:rgba(255,107,122,.28);color:#d89ca4}.reason.warn{border-color:rgba(244,193,82,.35);color:#e6cf94}
 .option-table{width:100%;border-collapse:collapse;font-size:10px}.option-table td{padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}.option-table td:last-child{text-align:right;font-weight:700}
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}.action.lock{opacity:.45}
-.banner{padding:8px 10px;border-radius:8px;font-size:9px;margin-bottom:8px;border:1px solid var(--line);color:var(--muted)}.banner.stale{border-color:rgba(255,107,122,.55);color:var(--bad);background:rgba(255,107,122,.06)}
-.log{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);padding:8px 0;font-size:9px}.note{font-size:9px;color:var(--muted);line-height:1.6;margin-top:7px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.actions.one{grid-template-columns:1fr}.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}.action.sell{border-color:rgba(255,107,122,.6);color:var(--bad)}.action.lock{opacity:.45}.action.runner{border-color:rgba(184,145,255,.65);color:var(--purple)}
+.banner{padding:8px 10px;border-radius:8px;font-size:9px;margin-bottom:8px;border:1px solid var(--line);color:var(--muted)}.banner.stale{border-color:rgba(255,107,122,.55);color:var(--bad);background:rgba(255,107,122,.06)}.banner.warn{border-color:rgba(244,193,82,.55);color:var(--warn);background:rgba(244,193,82,.05)}
+.log{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);padding:8px 0;font-size:9px}.note{font-size:9px;color:var(--muted);line-height:1.6;margin-top:7px}.rulebox{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:9px;font-size:9px;color:var(--muted);line-height:1.6}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:10}.modal.on{display:flex}.sheet{width:min(760px,100%);background:#101720;border:1px solid var(--line);border-radius:16px;padding:14px}.ticket{white-space:pre-wrap;background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;line-height:1.8;font-size:11px}.flex{display:flex;gap:8px}.flex>*{flex:1}
-@media(max-width:560px){.grid4{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr}}
+@media(max-width:560px){.grid4,.grid3{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr}.position-main{display:block}.position-main>div:last-child{text-align:left;margin-top:10px}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
     <div>
-      <div class="kicker">SPY 0DTE · V6.1 PAPER</div>
-      <h1>0DTE専用 Signal → Webull確認</h1>
-      <div class="small">当日満期のみ。方向＋価格＋鮮度＋時間帯で判定</div>
+      <div class="kicker">SPY 0DTE · V6.2 RUNNER</div>
+      <h1>0DTE専用 Signal → Position → Exit</h1>
+      <div class="small">入口の厳格化＋大化けを残す保有管理。Paper検証用。</div>
     </div>
     <div class="badge" id="modeBadge">DEMO</div>
   </div>
 
-  <div id="staleBanner" class="banner">DEMO · 0DTE V6.1</div>
+  <div id="staleBanner" class="banner">DEMO · 0DTE V6.2</div>
 
   <div class="grid4">
     <div class="card"><div class="label">SPY</div><div id="spy" class="value">667.18</div><div id="spyAge" class="small">● --</div></div>
@@ -51,7 +53,7 @@
   </div>
 
   <div class="sec">
-    <div class="sec-title"><h2>DEMO</h2><span class="small">V6.1ゲート確認</span></div>
+    <div class="sec-title"><h2>DEMO</h2><span class="small">入口＋POSITION確認</span></div>
     <div class="scenarios">
       <button class="btn btn-primary" onclick="loadScenario('buy')">BUY</button>
       <button class="btn" onclick="loadScenario('watch')">WATCH</button>
@@ -97,9 +99,47 @@
       </table>
       <div class="actions">
         <button class="action" onclick="freezeSignal()">予測を固定</button>
-        <button id="webullBtn" class="action buy" onclick="openTicket()">Webullで購入確認</button>
+        <button id="webullBtn" class="action buy" onclick="openEntryTicket()">Webullで購入確認</button>
       </div>
-      <div class="note">自動発注はしません。V6.1はPaper検証用。Webullで最終確認して手動購入する設計です。</div>
+      <div class="note">入口はV6.1正式条件を継承。OIや固定IV閾値はBUYのハード条件にしません。</div>
+    </div>
+  </div>
+
+  <div id="positionSection" class="sec hidden">
+    <div class="sec-title"><h2>POSITION</h2><span id="positionAge" class="small">保有 --分</span></div>
+    <div id="positionCard" class="card position hold">
+      <div class="position-main">
+        <div>
+          <div class="label">POSITION DECISION</div>
+          <div id="positionDecision" class="sig-big good">HOLD</div>
+          <div id="positionContract" class="small">--</div>
+        </div>
+        <div>
+          <div class="label">CURRENT P/L</div>
+          <div id="positionPnl" class="bigvalue">+0.0%</div>
+          <div id="positionPrice" class="small">Entry -- / Bid --</div>
+        </div>
+      </div>
+
+      <div id="quoteMismatch" class="banner warn hidden" style="margin-top:10px">固定した契約と現在候補が違います。この価格はPOSITION損益には使いません。</div>
+
+      <div class="grid4" style="margin-top:10px">
+        <div><div class="label">PEAK / MFE</div><div id="positionMfe" class="value purple">--</div></div>
+        <div><div class="label">LOW / MAE</div><div id="positionMae" class="value warn">--</div></div>
+        <div><div class="label">THESIS SCORE</div><div id="thesisScore" class="value">--</div></div>
+        <div><div class="label">PROFIT FLOOR</div><div id="profitFloor" class="value">OFF</div></div>
+      </div>
+
+      <div id="positionReasons" class="reasons"></div>
+
+      <div class="rulebox">
+        -30%までは価格だけで機械的に切らない / -65% HARD STOP / +50% RUNNER ARMED / +100%から広い利益保護 / 15:45 ET 強制EXIT / ナンピン禁止
+      </div>
+
+      <div class="actions">
+        <button id="exitBtn" class="action sell" onclick="openExitTicket()">Webullで決済確認</button>
+        <button class="action" onclick="manualPaperExit()">Paper手動EXIT</button>
+      </div>
     </div>
   </div>
 
@@ -120,17 +160,23 @@
 
 <div id="modal" class="modal" onclick="if(event.target===this)closeTicket()">
   <div class="sheet">
-    <div class="sec-title"><h2>WEBULL ORDER TICKET</h2><button class="btn" onclick="closeTicket()">閉じる</button></div>
+    <div class="sec-title"><h2 id="ticketTitle">WEBULL ORDER TICKET</h2><button class="btn" onclick="closeTicket()">閉じる</button></div>
     <div id="ticket" class="ticket"></div>
-    <div class="flex">
+    <div id="entryTicketActions" class="flex">
       <button class="btn" onclick="copyTicket()">注文票をコピー</button>
-      <button class="btn btn-primary" onclick="recordPaper()">Paper Entryとして記録</button>
+      <button class="btn btn-primary" onclick="recordPaperEntry()">Paper Entry開始</button>
+    </div>
+    <div id="exitTicketActions" class="flex hidden">
+      <button class="btn" onclick="copyTicket()">注文票をコピー</button>
+      <button class="btn btn-danger" onclick="confirmPaperExit()">Paper EXIT記録</button>
     </div>
   </div>
 </div>
 
 <script>
 const API_URL='https://spy0dte-live-backend-v2.vercel.app/';
+const LOG_KEY='spy0dte-v62-logs';
+const POSITION_KEY='spy0dte-v62-position';
 
 const scenarios={
  buy:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.40,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.70,ask:0.73,delta:-0.34,gamma:0.081,iv:24.2,volume:860,oi:2180,optionAge:0.6,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'},
@@ -141,29 +187,35 @@ const scenarios={
  liq:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.4,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.60,ask:0.74,delta:-0.34,gamma:0.081,iv:24.2,volume:70,oi:200,optionAge:0.7,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'}
 };
 
-let state=structuredClone(scenarios.buy), frozen=null, liveTimer=null;
+let state=structuredClone(scenarios.buy), frozen=null, liveTimer=null, ticketMode='ENTRY';
+let position=loadPosition();
 
 function money(x){return Number.isFinite(Number(x))?'$'+Number(x).toFixed(2):'--'}
-function pct(x){return Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+Number(x).toFixed(2)+'%':'--'}
+function pct(x,d=1){return Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+Number(x).toFixed(d)+'%':'--'}
 function deltaRange(band){if(band==='EARLY')return [0.25,0.40];if(band==='MID')return [0.30,0.45];if(band==='LATE')return [0.35,0.50];return null}
+function directionChecks(s,side){
+ const hasVol=Number.isFinite(Number(s.vixChange)),volName=s.volLabel||'VOL';
+ if(side==='PUT')return [['SPY < VWAP',s.spy<s.vwap],['VWAP slope ↓',s.vwapSlope<0],['5分 momentum ↓',s.mom5<-0.10],[volName+' ↑',hasVol&&s.vixChange>0.15],['SPY < 始値',s.spy<s.open]];
+ if(side==='CALL')return [['SPY > VWAP',s.spy>s.vwap],['VWAP slope ↑',s.vwapSlope>0],['5分 momentum ↑',s.mom5>0.10],[volName+' ↓',hasVol&&s.vixChange<-0.15],['SPY > 始値',s.spy>s.open]];
+ return [];
+}
+function sideScore(s,side){return directionChecks(s,side).filter(x=>x[1]).length*20}
 function evaluate(s){
- const hasVol=Number.isFinite(Number(s.vixChange)), volName=s.volLabel||'VOL';
- const bearish=[['SPY < VWAP',s.spy<s.vwap],['VWAP slope ↓',s.vwapSlope<0],['5分 momentum ↓',s.mom5<-0.10],[volName+' ↑',hasVol&&s.vixChange>0.15],['SPY < 始値',s.spy<s.open]];
- const bullish=[['SPY > VWAP',s.spy>s.vwap],['VWAP slope ↑',s.vwapSlope>0],['5分 momentum ↑',s.mom5>0.10],[volName+' ↓',hasVol&&s.vixChange<-0.15],['SPY > 始値',s.spy>s.open]];
+ const bearish=directionChecks(s,'PUT'),bullish=directionChecks(s,'CALL');
  const b=bearish.filter(x=>x[1]).length*20,c=bullish.filter(x=>x[1]).length*20;
- const side=b>c?'PUT':c>b?'CALL':'NONE', score=Math.max(b,c);
+ const side=b>c?'PUT':c>b?'CALL':'NONE',score=Math.max(b,c);
  const bid=Number(s.bid),ask=Number(s.ask),mid=(bid+ask)/2;
  const spreadAbs=ask-bid,spreadPct=mid>0?spreadAbs/mid*100:999;
  const dev=((Number(s.spy)-Number(s.vwap))/Number(s.vwap))*100;
  const quoteAge=Number(s.optionAge??s.age??99);
- const band=s.timeBand||'TIME_LOCK', dr=deltaRange(band), ad=Math.abs(Number(s.delta));
+ const band=s.timeBand||'TIME_LOCK',dr=deltaRange(band),ad=Math.abs(Number(s.delta));
  const fresh=quoteAge<=2;
- const liquid=spreadPct<=8 && spreadAbs<=0.10;
+ const liquid=spreadPct<=8&&spreadAbs<=0.10;
  const deltaOk=dr?ad>=dr[0]&&ad<=dr[1]:false;
  const chaseLock=Math.abs(dev)>=0.50;
  const chaseWatch=Math.abs(dev)>=0.30&&Math.abs(dev)<0.50;
  const lottery=ask<0.30;
- let decision='NO TRADE', blocks=[];
+ let decision='NO TRADE',blocks=[];
  if(band==='TIME_LOCK'||band==='CLOSED'){decision='TIME LOCK';blocks.push('時間帯ロック')}
  else if(!fresh){decision='STALE';blocks.push('Quote > 2秒')}
  else if(!liquid){decision='LIQUIDITY LOCK';blocks.push('Spread > 8% または $0.10')}
@@ -182,12 +234,56 @@ function evaluate(s){
  base.push({label:'Ask ≥ $0.30',state:lottery?'warn':'pass'});
  return {side,score,decision,reasons:base,spreadAbs,spreadPct,dev,mid,band,deltaOk,fresh,liquid,blocks}
 }
+
+function loadPosition(){try{return JSON.parse(localStorage.getItem(POSITION_KEY)||'null')}catch(e){return null}}
+function persistPosition(){if(position)localStorage.setItem(POSITION_KEY,JSON.stringify(position));else localStorage.removeItem(POSITION_KEY)}
+function sameContract(s,p){return !!p&&String(s.expiration||'TODAY')===String(p.expiration||'TODAY')&&String(s.strike)===String(p.strike)&&String(s.side||evaluate(s).side)===String(p.side)}
+function positionCore(s,side){
+ if(side==='CALL')return [['SPY/VWAP',s.spy>s.vwap],['VWAP slope',s.vwapSlope>0],['Momentum',s.mom5>0.10]];
+ return [['SPY/VWAP',s.spy<s.vwap],['VWAP slope',s.vwapSlope<0],['Momentum',s.mom5<-0.10]];
+}
+function profitFloor(peakPnl){if(peakPnl<100)return null;return peakPnl-Math.max(60,peakPnl*0.40)}
+function updatePositionFromState(){
+ if(!position||!position.active)return null;
+ const matched=sameContract(state,position);
+ if(matched&&Number.isFinite(Number(state.bid))){
+   const bid=Number(state.bid);
+   position.currentBid=bid;
+   position.peakBid=Math.max(Number(position.peakBid||position.entryAsk),bid);
+   position.lowBid=Math.min(Number(position.lowBid||position.entryAsk),bid);
+   position.updatedAt=Date.now();
+ }
+ const entry=Number(position.entryAsk),current=Number(position.currentBid);
+ const pnl=(current-entry)/entry*100;
+ const peakPnl=(Number(position.peakBid)-entry)/entry*100;
+ const mae=(Number(position.lowBid)-entry)/entry*100;
+ const thesis=sideScore(state,position.side);
+ const core=positionCore(state,position.side);
+ const corePass=core.filter(x=>x[1]).length;
+ const thesisBroken=thesis<=40&&corePass<=1;
+ position.thesisBreakCount=thesisBroken?(Number(position.thesisBreakCount||0)+1):0;
+ const floor=profitFloor(peakPnl);
+ const minutesToClose=Number(state.minutesToClose);
+ let decision='HOLD',exitReason=null,level='hold';
+ if(Number.isFinite(minutesToClose)&&minutesToClose<=15){decision='FORCE EXIT';exitReason='FORCE_EXIT';level='exit'}
+ else if(pnl<=-65){decision='HARD STOP';exitReason='HARD_STOP';level='exit'}
+ else if(position.thesisBreakCount>=2){decision='THESIS EXIT';exitReason='THESIS_BREAK';level='exit'}
+ else if(floor!==null&&pnl<=floor){decision='PROFIT TRAIL EXIT';exitReason='PROFIT_TRAIL';level='exit'}
+ else if(pnl<=-50){decision='DANGER';level='risk'}
+ else if(pnl<=-30){decision='RISK WATCH';level='risk'}
+ else if(peakPnl>=100){decision='RUNNER';level='runner'}
+ else if(peakPnl>=50){decision='RUNNER ARMED';level='runner'}
+ position.last={matched,pnl,peakPnl,mae,thesis,corePass,floor,decision,exitReason,level};
+ persistPosition();
+ return position.last;
+}
+
 function render(){
  const e=evaluate(state);
  document.getElementById('spy').textContent=Number(state.spy).toFixed(2);
  document.getElementById('volLabel').textContent=state.volLabel||'VOL';
  document.getElementById('vix').textContent=Number.isFinite(Number(state.vix))?Number(state.vix).toFixed(2):'--';
- document.getElementById('vwapDev').textContent=pct(e.dev);
+ document.getElementById('vwapDev').textContent=pct(e.dev,2);
  document.getElementById('vwapSlope').textContent='VWAP slope '+(state.vwapSlope<0?'↓':state.vwapSlope>0?'↑':'→');
  document.getElementById('band').textContent=e.band;
  document.getElementById('minutesToClose').textContent=Number.isFinite(Number(state.minutesToClose))?'残り '+Math.max(0,Math.round(state.minutesToClose))+'分':'残り --分';
@@ -201,29 +297,78 @@ function render(){
  document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${r.label}</div>`).join('');
  document.getElementById('expiration').textContent=state.expiration||'TODAY';
  document.getElementById('bidask').textContent=money(state.bid)+' / '+money(state.ask);
- document.getElementById('mid').textContent='$'+e.mid.toFixed(3);
+ document.getElementById('mid').textContent=Number.isFinite(e.mid)?'$'+e.mid.toFixed(3):'--';
  document.getElementById('spread').textContent=e.spreadPct.toFixed(1)+'% / $'+e.spreadAbs.toFixed(2);
  document.getElementById('delta').textContent=Number.isFinite(Number(state.delta))?Number(state.delta).toFixed(2):'--';
  document.getElementById('gamma').textContent=Number.isFinite(Number(state.gamma))?Number(state.gamma).toFixed(3):'--';
  document.getElementById('iv').textContent=Number.isFinite(Number(state.iv))?Number(state.iv).toFixed(1)+'%':'--';
  document.getElementById('voloi').textContent=Number(state.volume||0).toLocaleString()+' / '+(state.oi==null?'—':Number(state.oi).toLocaleString());
  document.getElementById('optionAge').textContent=Number(state.optionAge??state.age??99).toFixed(1)+'s';
- const wb=document.getElementById('webullBtn'),canBuy=e.decision.includes('BUY');
- wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent=canBuy?'Webullで購入確認':'Webull連携ロック';
+ const wb=document.getElementById('webullBtn'),canBuy=e.decision.includes('BUY')&&!position?.active;
+ wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent=position?.active?'POSITION保有中':canBuy?'Webullで購入確認':'Webull連携ロック';
  const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(document.getElementById('modeBadge').textContent==='LIVE'?'LIVE':'DEMO')+' · '+e.decision;
  document.getElementById('frozenTag').textContent=frozen?'FROZEN '+new Date(frozen.ts).toLocaleTimeString('ja-JP'):'';
+ renderPosition();
 }
+
+function renderPosition(){
+ const sec=document.getElementById('positionSection');
+ if(!position||!position.active){sec.classList.add('hidden');return}
+ sec.classList.remove('hidden');
+ const p=updatePositionFromState()||position.last;
+ const holdMin=Math.max(0,Math.floor((Date.now()-position.entryTs)/60000));
+ document.getElementById('positionAge').textContent='保有 '+holdMin+'分';
+ document.getElementById('positionContract').textContent=`${position.strike} ${position.side} · 0DTE · Entry ${money(position.entryAsk)}`;
+ document.getElementById('positionDecision').textContent=p.decision;
+ const dec=document.getElementById('positionDecision');
+ dec.className='sig-big '+(p.level==='exit'?'bad':p.level==='risk'?'warn':p.level==='runner'?'purple':'good');
+ const pnl=document.getElementById('positionPnl');pnl.textContent=pct(p.pnl);pnl.className='bigvalue '+(p.pnl>=0?'good':'bad');
+ document.getElementById('positionPrice').textContent=`Entry ${money(position.entryAsk)} / Bid ${money(position.currentBid)}`;
+ document.getElementById('positionMfe').textContent=pct(p.peakPnl);
+ document.getElementById('positionMae').textContent=pct(p.mae);
+ document.getElementById('thesisScore').textContent=String(p.thesis);
+ document.getElementById('profitFloor').textContent=p.floor===null?'OFF':pct(p.floor);
+ document.getElementById('quoteMismatch').classList.toggle('hidden',p.matched);
+ const core=positionCore(state,position.side);
+ const reasons=[
+   ...core.map(x=>({label:x[0]+' '+(x[1]?'維持':'逆転'),state:x[1]?'pass':'fail'})),
+   {label:`THESIS ${p.thesis}/100`,state:p.thesis>=80?'pass':p.thesis>=60?'warn':'fail'},
+   {label:p.floor===null?'利益保護 OFF (+100%から)':'利益保護 '+pct(p.floor),state:p.floor===null?'warn':'pass'},
+   {label:p.matched?'固定契約Quote一致':'固定契約Quote不一致',state:p.matched?'pass':'warn'}
+ ];
+ document.getElementById('positionReasons').innerHTML=reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${r.label}</div>`).join('');
+ document.getElementById('positionCard').className='card position '+p.level;
+ const exitBtn=document.getElementById('exitBtn');
+ exitBtn.textContent=p.level==='exit'?'EXIT推奨 · Webullで決済確認':'Webullで決済確認';
+}
+
 function loadScenario(n){state=structuredClone(scenarios[n]);frozen=null;document.getElementById('modeBadge').textContent='DEMO';render()}
 function freezeSignal(){const e=evaluate(state);frozen={ts:Date.now(),state:structuredClone(state),eval:e};saveLog({type:'FREEZE',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,iv:state.iv})}
-function orderText(){const e=evaluate(state);return ['SPY 0DTE V6.1 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`Decision: ${e.decision}`].join('\n')}
-function openTicket(){document.getElementById('ticket').textContent=orderText();document.getElementById('modal').classList.add('on')}
+function entryTicketText(){const e=evaluate(state);return ['SPY 0DTE V6.2 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`Decision: ${e.decision}`,'','V6.2: 0DTE RUNNER管理はPaper Entry記録後に開始'].join('\n')}
+function exitTicketText(){if(!position)return '';const p=position.last||updatePositionFromState();return ['SPY 0DTE V6.2 EXIT TICKET','SELL TO CLOSE',`SPY ${position.strike} ${position.side}`,'Expiry: TODAY','Qty: 1',`Current Bid: ${money(position.currentBid)}`,`Entry: ${money(position.entryAsk)}`,`P/L: ${pct(p.pnl)}`,`MFE: ${pct(p.peakPnl)}`,`MAE: ${pct(p.mae)}`,`Position decision: ${p.decision}`,`Exit reason: ${p.exitReason||'MANUAL_EXIT'}`].join('\n')}
+function openEntryTicket(){ticketMode='ENTRY';document.getElementById('ticketTitle').textContent='WEBULL ENTRY TICKET';document.getElementById('ticket').textContent=entryTicketText();document.getElementById('entryTicketActions').classList.remove('hidden');document.getElementById('exitTicketActions').classList.add('hidden');document.getElementById('modal').classList.add('on')}
+function openExitTicket(){if(!position)return;ticketMode='EXIT';document.getElementById('ticketTitle').textContent='WEBULL EXIT TICKET';document.getElementById('ticket').textContent=exitTicketText();document.getElementById('entryTicketActions').classList.add('hidden');document.getElementById('exitTicketActions').classList.remove('hidden');document.getElementById('modal').classList.add('on')}
 function closeTicket(){document.getElementById('modal').classList.remove('on')}
-async function copyTicket(){try{await navigator.clipboard.writeText(orderText());alert('注文票をコピーしました')}catch(e){alert(orderText())}}
-function getLogs(){try{return JSON.parse(localStorage.getItem('spy0dte-v61-logs')||'[]')}catch(e){return[]}}
-function saveLog(x){const a=getLogs();a.unshift({ts:Date.now(),...x});localStorage.setItem('spy0dte-v61-logs',JSON.stringify(a.slice(0,100)));renderLogs();render()}
-function recordPaper(){const e=evaluate(state);saveLog({type:'PAPER',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5});closeTicket()}
-function clearLogs(){localStorage.removeItem('spy0dte-v61-logs');renderLogs()}
-function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.1ログはありません。</div>';return}el.innerHTML=a.map(x=>`<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''} · ${x.band||''}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`).join('')}
+async function copyTicket(){const t=ticketMode==='EXIT'?exitTicketText():entryTicketText();try{await navigator.clipboard.writeText(t);alert('注文票をコピーしました')}catch(e){alert(t)}}
+function getLogs(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch(e){return[]}}
+function saveLog(x){const a=getLogs();a.unshift({ts:Date.now(),...x});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
+function recordPaperEntry(){
+ const e=evaluate(state);if(!e.decision.includes('BUY'))return;
+ position={active:true,entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
+ persistPosition();updatePositionFromState();
+ saveLog({type:'ENTRY',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5});
+ closeTicket();render();
+}
+function exitPosition(reason){
+ if(!position)return;const p=updatePositionFromState()||position.last;const holdSec=Math.max(0,Math.round((Date.now()-position.entryTs)/1000));
+ saveLog({type:'EXIT',reason:reason||p.exitReason||'MANUAL_EXIT',side:position.side,strike:position.strike,entry:position.entryAsk,exitBid:position.currentBid,pnl:p.pnl,mfe:p.peakPnl,mae:p.mae,holdSec,thesis:p.thesis,decision:p.decision});
+ position=null;persistPosition();closeTicket();render();
+}
+function confirmPaperExit(){exitPosition(position?.last?.exitReason||'MANUAL_EXIT')}
+function manualPaperExit(){if(position)exitPosition('MANUAL_EXIT')}
+function clearLogs(){localStorage.removeItem(LOG_KEY);renderLogs()}
+function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.2ログはありません。</div>';return}el.innerHTML=a.map(x=>{const extra=x.type==='EXIT'?` · ${x.reason||''} · P/L ${pct(x.pnl)}`:'';return `<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''}${extra}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`}).join('')}
+
 async function fetchLive(){
  const st=document.getElementById('liveStatus');st.textContent='接続中...';
  try{
