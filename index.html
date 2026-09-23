@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#090d12">
-<title>SPY 0DTE v6.2</title>
+<title>SPY 0DTE v6.3</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -27,6 +27,7 @@
 .option-table{width:100%;border-collapse:collapse;font-size:10px}.option-table td{padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}.option-table td:last-child{text-align:right;font-weight:700}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.actions.one{grid-template-columns:1fr}.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}.action.sell{border-color:rgba(255,107,122,.6);color:var(--bad)}.action.lock{opacity:.45}.action.runner{border-color:rgba(184,145,255,.65);color:var(--purple)}
 .banner{padding:8px 10px;border-radius:8px;font-size:9px;margin-bottom:8px;border:1px solid var(--line);color:var(--muted)}.banner.stale{border-color:rgba(255,107,122,.55);color:var(--bad);background:rgba(255,107,122,.06)}.banner.warn{border-color:rgba(244,193,82,.55);color:var(--warn);background:rgba(244,193,82,.05)}
+.news-card{border-width:2px}.news-card.low{border-color:rgba(85,216,138,.35)}.news-card.medium{border-color:rgba(244,193,82,.55)}.news-card.high{border-color:rgba(255,107,122,.70)}.news-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.news-level{font-size:22px;font-weight:900}.news-meta{text-align:right}.news-lock{margin-top:8px;font-size:10px;font-weight:800}
 .log{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid rgba(255,255,255,.06);padding:8px 0;font-size:9px}.note{font-size:9px;color:var(--muted);line-height:1.6;margin-top:7px}.rulebox{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:9px;font-size:9px;color:var(--muted);line-height:1.6}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:flex-end;justify-content:center;padding:12px;z-index:10}.modal.on{display:flex}.sheet{width:min(760px,100%);background:#101720;border:1px solid var(--line);border-radius:16px;padding:14px}.ticket{white-space:pre-wrap;background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;line-height:1.8;font-size:11px}.flex{display:flex;gap:8px}.flex>*{flex:1}
 @media(max-width:560px){.grid4,.grid3{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr}.position-main{display:block}.position-main>div:last-child{text-align:left;margin-top:10px}}
@@ -36,20 +37,40 @@
 <div class="wrap">
   <div class="header">
     <div>
-      <div class="kicker">SPY 0DTE · V6.2 RUNNER</div>
+      <div class="kicker">SPY 0DTE · V6.3 MODULAR</div>
       <h1>0DTE専用 Signal → Position → Exit</h1>
       <div class="small">入口の厳格化＋大化けを残す保有管理。Paper検証用。</div>
     </div>
     <div class="badge" id="modeBadge">DEMO</div>
   </div>
 
-  <div id="staleBanner" class="banner">DEMO · 0DTE V6.2</div>
+  <div id="staleBanner" class="banner">DEMO · 0DTE V6.3</div>
 
   <div class="grid4">
     <div class="card"><div class="label">SPY</div><div id="spy" class="value">667.18</div><div id="spyAge" class="small">● --</div></div>
     <div class="card"><div id="volLabel" class="label">VIXY proxy</div><div id="vix" class="value">19.40</div><div id="vixAge" class="small">● --</div></div>
     <div class="card"><div class="label">VWAP差</div><div id="vwapDev" class="value">-0.14%</div><div id="vwapSlope" class="small">VWAP slope ↓</div></div>
     <div class="card"><div class="label">ET BAND</div><div id="band" class="value">MID</div><div id="minutesToClose" class="small">残り --分</div></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title"><h2>NEWS RISK</h2><span id="newsSource" class="small">SCHEDULE</span></div>
+    <div id="newsCard" class="card news-card low">
+      <div class="news-row">
+        <div>
+          <div class="label">MARKET EVENT RISK</div>
+          <div id="newsLevel" class="news-level good">LOW</div>
+          <div id="newsEvent" class="small">重要イベント待機</div>
+        </div>
+        <div class="news-meta">
+          <div class="label">NEXT / PHASE</div>
+          <div id="newsCountdown" class="value">--</div>
+          <div id="newsPhase" class="small">通常</div>
+        </div>
+      </div>
+      <div id="newsLockText" class="news-lock good">通常ロジック</div>
+      <div class="note">V6.3初期版：予定済み重要指標をフィルター化。ニュース内容でCALL/PUTを直接決めません。</div>
+    </div>
   </div>
 
   <div class="sec">
@@ -175,8 +196,46 @@
 
 <script>
 const API_URL='https://spy0dte-live-backend-v2.vercel.app/';
-const LOG_KEY='spy0dte-v62-logs';
-const POSITION_KEY='spy0dte-v62-position';
+const LOG_KEY='spy0dte-v62-logs';       // 既存V6.2ログを継承
+const POSITION_KEY='spy0dte-v62-position'; // 既存V6.2保有を継承
+const CONFIG=Object.freeze({
+  version:'6.3',
+  symbol:'SPY',
+  rules:Object.freeze({
+    quoteMaxAgeSec:2,
+    spreadMaxPct:8,
+    spreadMaxAbs:0.10,
+    chaseWatchPct:0.30,
+    chaseLockPct:0.50,
+    lotteryAsk:0.30,
+    newsPreLockMin:30,
+    newsPostLockMin:5,
+    newsPostWatchMin:20,
+    newsOpenWatchMin:15
+  }),
+  newsScheduleUpdated:'2026-09-23'
+});
+
+const NEWS_EVENTS=[
+  {at:'2026-09-29T10:00:00-04:00',title:'JOLTS',level:'MEDIUM',source:'BLS'},
+  {at:'2026-09-30T08:30:00-04:00',title:'PCE + GDP (3rd)',level:'HIGH',source:'BEA',premarket:true},
+  {at:'2026-10-02T08:30:00-04:00',title:'Employment Situation',level:'HIGH',source:'BLS',premarket:true},
+  {at:'2026-10-07T14:00:00-04:00',title:'FOMC Minutes',level:'MEDIUM',source:'FED'},
+  {at:'2026-10-14T08:30:00-04:00',title:'CPI',level:'HIGH',source:'BLS',premarket:true},
+  {at:'2026-10-28T14:00:00-04:00',title:'FOMC Statement',level:'HIGH',source:'FED'},
+  {at:'2026-10-28T14:30:00-04:00',title:'FOMC Press Conference',level:'HIGH',source:'FED'},
+  {at:'2026-10-29T08:30:00-04:00',title:'GDP Advance + PCE',level:'HIGH',source:'BEA',premarket:true},
+  {at:'2026-11-03T10:00:00-05:00',title:'JOLTS',level:'MEDIUM',source:'BLS'},
+  {at:'2026-11-06T08:30:00-05:00',title:'Employment Situation',level:'HIGH',source:'BLS',premarket:true},
+  {at:'2026-11-10T08:30:00-05:00',title:'CPI',level:'HIGH',source:'BLS',premarket:true},
+  {at:'2026-11-25T08:30:00-05:00',title:'GDP (2nd) + PCE',level:'HIGH',source:'BEA',premarket:true},
+  {at:'2026-12-01T10:00:00-05:00',title:'JOLTS',level:'MEDIUM',source:'BLS'},
+  {at:'2026-12-04T08:30:00-05:00',title:'Employment Situation',level:'HIGH',source:'BLS',premarket:true},
+  {at:'2026-12-09T14:00:00-05:00',title:'FOMC Statement',level:'HIGH',source:'FED'},
+  {at:'2026-12-09T14:30:00-05:00',title:'FOMC Press Conference',level:'HIGH',source:'FED'},
+  {at:'2026-12-10T08:30:00-05:00',title:'CPI',level:'HIGH',source:'BLS',premarket:true},
+  {at:'2026-12-23T08:30:00-05:00',title:'GDP (3rd) + PCE',level:'HIGH',source:'BEA',premarket:true}
+];
 
 const scenarios={
  buy:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.40,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.70,ask:0.73,delta:-0.34,gamma:0.081,iv:24.2,volume:860,oi:2180,optionAge:0.6,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'},
@@ -200,7 +259,67 @@ function directionChecks(s,side){
  return [];
 }
 function sideScore(s,side){return directionChecks(s,side).filter(x=>x[1]).length*20}
+function etParts(ts=Date.now()){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date(ts));
+  const o={};for(const p of parts)if(p.type!=='literal')o[p.type]=p.value;
+  return {date:`${o.year}-${o.month}-${o.day}`,hour:Number(o.hour),minute:Number(o.minute)};
+}
+function normalizeLiveNews(s){
+  const n=s?.newsRisk||s?.news||null;
+  if(!n)return null;
+  if(typeof n==='string')return {level:String(n).toUpperCase(),title:'LIVE NEWS',phase:'LIVE',lock:String(n).toUpperCase()==='HIGH',watch:false,source:'LIVE'};
+  const level=String(n.level||n.risk||'LOW').toUpperCase();
+  return {level,title:n.title||n.event||'LIVE NEWS',phase:n.phase||'LIVE',lock:Boolean(n.lock??level==='HIGH'),watch:Boolean(n.watch),source:n.source||'LIVE',minutes:n.minutes??null,nextAt:n.eventTime||n.at||null};
+}
+function getNewsRisk(s,now=Date.now()){
+  const live=normalizeLiveNews(s);
+  if(live&&live.level!=='LOW')return live;
+  const R=CONFIG.rules,high=NEWS_EVENTS.filter(x=>x.level==='HIGH'),active=[];
+  for(const ev of high){
+    const t=Date.parse(ev.at),mins=(t-now)/60000;
+    if(mins>=0&&mins<=R.newsPreLockMin)active.push({level:'HIGH',title:ev.title,phase:'PRE',lock:true,watch:false,source:ev.source,minutes:mins,nextAt:ev.at});
+    else if(mins<0&&mins>=-R.newsPostLockMin)active.push({level:'HIGH',title:ev.title,phase:'POST_LOCK',lock:true,watch:false,source:ev.source,minutes:mins,nextAt:ev.at});
+    else if(mins<-R.newsPostLockMin&&mins>=-R.newsPostWatchMin)active.push({level:'HIGH',title:ev.title,phase:'POST_WATCH',lock:false,watch:true,source:ev.source,minutes:mins,nextAt:ev.at});
+  }
+  const locked=active.filter(x=>x.lock).sort((a,b)=>Math.abs(a.minutes)-Math.abs(b.minutes))[0];
+  if(locked)return locked;
+  const watched=active.filter(x=>x.watch).sort((a,b)=>Math.abs(a.minutes)-Math.abs(b.minutes))[0];
+  if(watched)return watched;
+  const et=etParts(now),openMin=et.hour*60+et.minute;
+  if(openMin>=570&&openMin<570+R.newsOpenWatchMin){
+    const sameDay=high.find(ev=>ev.premarket&&ev.at.slice(0,10)===et.date);
+    if(sameDay)return {level:'HIGH',title:sameDay.title,phase:'OPEN_WATCH',lock:false,watch:true,source:sameDay.source,minutes:null,nextAt:sameDay.at};
+  }
+  const upcoming=NEWS_EVENTS.map(ev=>({...ev,t:Date.parse(ev.at)})).filter(ev=>ev.t>now).sort((a,b)=>a.t-b.t)[0]||null;
+  if(upcoming){
+    const mins=(upcoming.t-now)/60000;
+    const level=upcoming.level==='MEDIUM'&&mins<=60?'MEDIUM':'LOW';
+    return {level,title:upcoming.title,phase:level==='MEDIUM'?'UPCOMING':'NORMAL',lock:false,watch:false,source:upcoming.source,minutes:mins,nextAt:upcoming.at};
+  }
+  return {level:'LOW',title:'予定表の更新待ち',phase:'NORMAL',lock:false,watch:false,source:'SCHEDULE',minutes:null,nextAt:null};
+}
+function newsCountdown(n){
+  if(!n||n.minutes==null)return '--';
+  const m=Math.round(Math.abs(n.minutes));
+  if(n.phase==='PRE'||n.phase==='UPCOMING'||n.phase==='NORMAL')return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':'T-'+m+'m';
+  return 'T+'+m+'m';
+}
+function renderNewsRisk(n){
+  n=n||getNewsRisk(state);
+  const level=String(n.level||'LOW').toUpperCase();
+  const card=document.getElementById('newsCard'),lv=document.getElementById('newsLevel');
+  card.className='card news-card '+(level==='HIGH'?'high':level==='MEDIUM'?'medium':'low');
+  lv.textContent=level;lv.className='news-level '+(level==='HIGH'?'bad':level==='MEDIUM'?'warn':'good');
+  document.getElementById('newsEvent').textContent=n.title||'重要イベントなし';
+  document.getElementById('newsCountdown').textContent=newsCountdown(n);
+  document.getElementById('newsPhase').textContent=n.phase||'NORMAL';
+  document.getElementById('newsSource').textContent=(n.source||'SCHEDULE')+' · '+CONFIG.newsScheduleUpdated;
+  const lock=document.getElementById('newsLockText');
+  lock.textContent=n.lock?'新規ENTRY停止':n.watch?'新規ENTRYはWATCH扱い':'通常ロジック';
+  lock.className='news-lock '+(n.lock?'bad':n.watch||level==='MEDIUM'?'warn':'good');
+}
 function evaluate(s){
+ const R=CONFIG.rules;
  const bearish=directionChecks(s,'PUT'),bullish=directionChecks(s,'CALL');
  const b=bearish.filter(x=>x[1]).length*20,c=bullish.filter(x=>x[1]).length*20;
  const side=b>c?'PUT':c>b?'CALL':'NONE',score=Math.max(b,c);
@@ -209,30 +328,34 @@ function evaluate(s){
  const dev=((Number(s.spy)-Number(s.vwap))/Number(s.vwap))*100;
  const quoteAge=Number(s.optionAge??s.age??99);
  const band=s.timeBand||'TIME_LOCK',dr=deltaRange(band),ad=Math.abs(Number(s.delta));
- const fresh=quoteAge<=2;
- const liquid=spreadPct<=8&&spreadAbs<=0.10;
+ const fresh=quoteAge<=R.quoteMaxAgeSec;
+ const liquid=spreadPct<=R.spreadMaxPct&&spreadAbs<=R.spreadMaxAbs;
  const deltaOk=dr?ad>=dr[0]&&ad<=dr[1]:false;
- const chaseLock=Math.abs(dev)>=0.50;
- const chaseWatch=Math.abs(dev)>=0.30&&Math.abs(dev)<0.50;
- const lottery=ask<0.30;
+ const chaseLock=Math.abs(dev)>=R.chaseLockPct;
+ const chaseWatch=Math.abs(dev)>=R.chaseWatchPct&&Math.abs(dev)<R.chaseLockPct;
+ const lottery=ask<R.lotteryAsk;
+ const news=getNewsRisk(s);
  let decision='NO TRADE',blocks=[];
- if(band==='TIME_LOCK'||band==='CLOSED'){decision='TIME LOCK';blocks.push('時間帯ロック')}
- else if(!fresh){decision='STALE';blocks.push('Quote > 2秒')}
- else if(!liquid){decision='LIQUIDITY LOCK';blocks.push('Spread > 8% または $0.10')}
- else if(chaseLock){decision='CHASE LOCK';blocks.push('|SPY-VWAP| ≥ 0.50%')}
+ if(news.lock){decision='NEWS WAIT';blocks.push(news.title+' '+news.phase)}
+ else if(band==='TIME_LOCK'||band==='CLOSED'){decision='TIME LOCK';blocks.push('時間帯ロック')}
+ else if(!fresh){decision='STALE';blocks.push('Quote > '+R.quoteMaxAgeSec+'秒')}
+ else if(!liquid){decision='LIQUIDITY LOCK';blocks.push('Spread > '+R.spreadMaxPct+'% または $'+R.spreadMaxAbs.toFixed(2))}
+ else if(chaseLock){decision='CHASE LOCK';blocks.push('|SPY-VWAP| ≥ '+R.chaseLockPct.toFixed(2)+'%')}
  else if(side==='NONE'||score<60){decision='NO TRADE';blocks.push('方向スコア不足')}
  else if(!deltaOk){decision=side+' WATCH';blocks.push('時間帯Delta帯の外')}
- else if(lottery){decision='LOTTERY FLAG';blocks.push('Ask < $0.30')}
- else if(chaseWatch){decision=side+' WATCH';blocks.push('VWAP乖離 0.30–0.50%')}
+ else if(lottery){decision='LOTTERY FLAG';blocks.push('Ask < $'+R.lotteryAsk.toFixed(2))}
+ else if(chaseWatch){decision=side+' WATCH';blocks.push('VWAP乖離 '+R.chaseWatchPct.toFixed(2)+'–'+R.chaseLockPct.toFixed(2)+'%')}
+ else if(news.watch){decision=side+' WATCH';blocks.push(news.title+' '+news.phase)}
  else if(score>=80){decision=side+' BUY'}
  else decision=side+' WATCH';
  const base=(side==='PUT'?bearish:side==='CALL'?bullish:bearish).map(x=>({label:x[0],state:x[1]?'pass':'fail'}));
- base.push({label:'Quote ≤ 2秒',state:fresh?'pass':'fail'});
- base.push({label:'Spread ≤ 8% & $0.10',state:liquid?'pass':'fail'});
+ base.push({label:'Quote ≤ '+R.quoteMaxAgeSec+'秒',state:fresh?'pass':'fail'});
+ base.push({label:'Spread ≤ '+R.spreadMaxPct+'% & $'+R.spreadMaxAbs.toFixed(2),state:liquid?'pass':'fail'});
  base.push({label:dr?`Delta ${dr[0].toFixed(2)}–${dr[1].toFixed(2)}`:'Delta TIME LOCK',state:deltaOk?'pass':'fail'});
  base.push({label:'追いかけ禁止',state:chaseLock?'fail':chaseWatch?'warn':'pass'});
- base.push({label:'Ask ≥ $0.30',state:lottery?'warn':'pass'});
- return {side,score,decision,reasons:base,spreadAbs,spreadPct,dev,mid,band,deltaOk,fresh,liquid,blocks}
+ base.push({label:'Ask ≥ $'+R.lotteryAsk.toFixed(2),state:lottery?'warn':'pass'});
+ base.push({label:'NEWS '+news.level+' · '+news.title,state:news.lock?'fail':news.watch||news.level==='MEDIUM'?'warn':'pass'});
+ return {side,score,decision,reasons:base,spreadAbs,spreadPct,dev,mid,band,deltaOk,fresh,liquid,blocks,news}
 }
 
 function loadPosition(){try{return JSON.parse(localStorage.getItem(POSITION_KEY)||'null')}catch(e){return null}}
@@ -287,6 +410,7 @@ function updatePositionFromState(){
 
 function render(){
  const e=evaluate(state);
+ renderNewsRisk(e.news);
  document.getElementById('spy').textContent=Number(state.spy).toFixed(2);
  document.getElementById('volLabel').textContent=state.volLabel||'VOL';
  document.getElementById('vix').textContent=Number.isFinite(Number(state.vix))?Number(state.vix).toFixed(2):'--';
@@ -350,9 +474,9 @@ function renderPosition(){
 }
 
 function loadScenario(n){state=structuredClone(scenarios[n]);frozen=null;document.getElementById('modeBadge').textContent='DEMO';render()}
-function freezeSignal(){const e=evaluate(state);frozen={ts:Date.now(),state:structuredClone(state),eval:e};saveLog({type:'FREEZE',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,iv:state.iv})}
-function entryTicketText(){const e=evaluate(state);return ['SPY 0DTE V6.2 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`Decision: ${e.decision}`,'','V6.2: 0DTE RUNNER管理はPaper Entry記録後に開始'].join('\n')}
-function exitTicketText(){if(!position)return '';const p=position.last||updatePositionFromState();return ['SPY 0DTE V6.2 EXIT TICKET','SELL TO CLOSE',`SPY ${position.strike} ${position.side}`,'Expiry: TODAY','Qty: 1',`Current Bid: ${money(position.currentBid)}`,`Entry: ${money(position.entryAsk)}`,`P/L: ${pct(p.pnl)}`,`MFE: ${pct(p.peakPnl)}`,`MAE: ${pct(p.mae)}`,`Position decision: ${p.decision}`,`Exit reason: ${p.exitReason||'MANUAL_EXIT'}`].join('\n')}
+function freezeSignal(){const e=evaluate(state);frozen={ts:Date.now(),state:structuredClone(state),eval:e};saveLog({type:'FREEZE',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,iv:state.iv,newsLevel:e.news.level,newsEvent:e.news.title,newsPhase:e.news.phase})}
+function entryTicketText(){const e=evaluate(state);return ['SPY 0DTE V6.3 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`NEWS: ${e.news.level} / ${e.news.title} / ${e.news.phase}`,`Decision: ${e.decision}`,'','V6.3: 0DTE RUNNER管理はPaper Entry記録後に開始'].join('\n')}
+function exitTicketText(){if(!position)return '';const p=position.last||updatePositionFromState();return ['SPY 0DTE V6.3 EXIT TICKET','SELL TO CLOSE',`SPY ${position.strike} ${position.side}`,'Expiry: TODAY','Qty: 1',`Current Bid: ${money(position.currentBid)}`,`Entry: ${money(position.entryAsk)}`,`P/L: ${pct(p.pnl)}`,`MFE: ${pct(p.peakPnl)}`,`MAE: ${pct(p.mae)}`,`Position decision: ${p.decision}`,`Exit reason: ${p.exitReason||'MANUAL_EXIT'}`].join('\n')}
 function openEntryTicket(){ticketMode='ENTRY';document.getElementById('ticketTitle').textContent='WEBULL ENTRY TICKET';document.getElementById('ticket').textContent=entryTicketText();document.getElementById('entryTicketActions').classList.remove('hidden');document.getElementById('exitTicketActions').classList.add('hidden');document.getElementById('modal').classList.add('on')}
 function openExitTicket(){if(!position)return;ticketMode='EXIT';document.getElementById('ticketTitle').textContent='WEBULL EXIT TICKET';document.getElementById('ticket').textContent=exitTicketText();document.getElementById('entryTicketActions').classList.add('hidden');document.getElementById('exitTicketActions').classList.remove('hidden');document.getElementById('modal').classList.add('on')}
 function closeTicket(){document.getElementById('modal').classList.remove('on')}
@@ -363,7 +487,7 @@ function recordPaperEntry(){
  const e=evaluate(state);if(!e.decision.includes('BUY'))return;
  position={active:true,entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,optionSymbol:state.optionSymbol||null,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
  persistPosition();updatePositionFromState();
- saveLog({type:'ENTRY',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5});
+ saveLog({type:'ENTRY',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5,newsLevel:e.news.level,newsEvent:e.news.title,newsPhase:e.news.phase});
  closeTicket();render();
 }
 function exitPosition(reason){
@@ -374,7 +498,7 @@ function exitPosition(reason){
 function confirmPaperExit(){exitPosition(position?.last?.exitReason||'MANUAL_EXIT')}
 function manualPaperExit(){if(position)exitPosition('MANUAL_EXIT')}
 function clearLogs(){localStorage.removeItem(LOG_KEY);renderLogs()}
-function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.2ログはありません。</div>';return}el.innerHTML=a.map(x=>{const extra=x.type==='EXIT'?` · ${x.reason||''} · P/L ${pct(x.pnl)}`:'';return `<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''}${extra}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`}).join('')}
+function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.3ログはありません。</div>';return}el.innerHTML=a.map(x=>{const extra=x.type==='EXIT'?` · ${x.reason||''} · P/L ${pct(x.pnl)}`:'';return `<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''}${extra}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`}).join('')}
 
 async function fetchLive(){
  const st=document.getElementById('liveStatus');st.textContent='接続中...';
@@ -391,6 +515,7 @@ async function fetchLive(){
 }
 async function tryLive(){const ok=await fetchLive();if(liveTimer)clearInterval(liveTimer);if(ok)liveTimer=setInterval(fetchLive,5000)}
 render();renderLogs();
+setInterval(()=>renderNewsRisk(getNewsRisk(state)),30000);
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
 </script>
 </body>
