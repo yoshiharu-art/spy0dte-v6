@@ -1,4 +1,4 @@
-const CACHE = 'spy0dte-v62-pwa-v2';
+const CACHE = 'spy0dte-v63-pwa-v1';
 
 const ASSETS = [
   './',
