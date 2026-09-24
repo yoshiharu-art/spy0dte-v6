@@ -22,7 +22,7 @@
 .scenarios{display:flex;gap:6px;overflow:auto;padding-bottom:3px}button{font:inherit}.btn{border:1px solid var(--line);background:#0d151e;color:var(--text);padding:8px 10px;border-radius:9px;font-size:10px;white-space:nowrap}.btn-primary{background:rgba(85,216,138,.10);border-color:rgba(85,216,138,.55);color:var(--good)}.btn-danger{background:rgba(255,107,122,.08);border-color:rgba(255,107,122,.5);color:var(--bad)}.btn-warn{background:rgba(244,193,82,.08);border-color:rgba(244,193,82,.5);color:var(--warn)}
 .signal{border-width:2px}.signal.buy{border-color:rgba(85,216,138,.65)}.signal.watch{border-color:rgba(244,193,82,.65)}.signal.no{border-color:rgba(255,107,122,.55)}
 .position{border-width:2px}.position.runner{border-color:rgba(184,145,255,.7)}.position.hold{border-color:rgba(85,216,138,.5)}.position.risk{border-color:rgba(244,193,82,.65)}.position.exit{border-color:rgba(255,107,122,.75)}
-.sig-row{display:flex;justify-content:space-between;gap:10px}.sig-big{font-size:24px;font-weight:900;margin-top:3px}.score{font-size:30px;font-weight:900;text-align:right}.position-main{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.position-main>div:last-child{text-align:right}
+.sig-row{display:flex;justify-content:space-between;gap:10px}.sig-big{font-size:clamp(28px,7vw,38px);font-weight:900;margin-top:3px}.score{font-size:30px;font-weight:900;text-align:right}.position-main{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.position-main>div:last-child{text-align:right}
 .reasons{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:10px}.reason{border:1px solid var(--line);border-radius:8px;padding:7px 8px;font-size:9px;color:var(--muted)}.reason.pass{border-color:rgba(85,216,138,.35);color:#a8e9c2}.reason.fail{border-color:rgba(255,107,122,.28);color:#d89ca4}.reason.warn{border-color:rgba(244,193,82,.35);color:#e6cf94}
 .option-table{width:100%;border-collapse:collapse;font-size:10px}.option-table td{padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}.option-table td:last-child{text-align:right;font-weight:700}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.actions.one{grid-template-columns:1fr}.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}.action.sell{border-color:rgba(255,107,122,.6);color:var(--bad)}.action.lock{opacity:.45}.action.runner{border-color:rgba(184,145,255,.65);color:var(--purple)}
@@ -39,28 +39,35 @@
     <div>
       <div class="kicker">SPY 0DTE · V6.4 NEWS ENGINE</div>
       <h1>0DTE専用 Signal → Position → Exit</h1>
-      <div class="small">入口の厳格化＋大化けを残す保有管理。Paper検証用。</div>
+      <div class="small">Webull実相場で判定 · 最終注文はWebullで手動確認</div>
     </div>
-    <div class="badge" id="modeBadge">MOCK / PAPER</div>
+    <div class="badge" id="modeBadge">接続準備中</div>
   </div>
 
-  <div id="staleBanner" class="banner">MOCK / PAPER · 0DTE V6.4</div>
+  <div id="staleBanner" class="banner">実データ取得待ち · 自動注文OFF</div>
+  <div class="card" style="margin-bottom:10px">
+    <div id="connectionStatus" class="small">Webull：未接続</div>
+    <div id="newsModeStatus" class="warn">ニュース監視：設定確認中</div>
+    <div id="newsWarning" class="small warn">突発ニュース未確認</div>
+    <div id="lastUpdate" class="small">最終データ更新：未取得</div>
+    <div class="small">自動注文OFF · 注文はWebullで確認して行ってください</div>
+  </div>
 
   <div class="grid4">
-    <div class="card"><div class="label">SPY</div><div id="spy" class="value">667.18</div><div id="spyAge" class="small">● --</div></div>
-    <div class="card"><div id="volLabel" class="label">VIXY proxy</div><div id="vix" class="value">19.40</div><div id="vixAge" class="small">● --</div></div>
-    <div class="card"><div class="label">VWAP差</div><div id="vwapDev" class="value">-0.14%</div><div id="vwapSlope" class="small">VWAP slope ↓</div></div>
-    <div class="card"><div class="label">ET BAND</div><div id="band" class="value">MID</div><div id="minutesToClose" class="small">残り --分</div></div>
+    <div class="card"><div class="label">SPY</div><div id="spy" class="value">--</div><div id="spyAge" class="small">● --</div></div>
+    <div class="card"><div id="volLabel" class="label">VIXY proxy</div><div id="vix" class="value">--</div><div id="vixAge" class="small">● --</div></div>
+    <div class="card"><div class="label">VWAP差</div><div id="vwapDev" class="value">--</div><div id="vwapSlope" class="small">VWAP slope ↓</div></div>
+    <div class="card"><div class="label">ET BAND</div><div id="band" class="value">--</div><div id="minutesToClose" class="small">残り --分</div></div>
   </div>
 
   <div class="sec">
     <div class="sec-title"><h2>NEWS RISK</h2><span id="newsSource" class="small">SCHEDULE</span></div>
-    <div id="newsCard" class="card news-card low">
+    <div id="newsCard" class="card news-card medium">
       <div class="news-row">
         <div>
           <div class="label">MARKET EVENT RISK</div>
-          <div id="newsLevel" class="news-level good">LOW</div>
-          <div id="newsEvent" class="small">重要イベント待機</div>
+          <div id="newsLevel" class="news-level warn">未確認</div>
+          <div id="newsEvent" class="small">突発ニュース未確認</div>
         </div>
         <div class="news-meta">
           <div class="label">NEXT / PHASE</div>
@@ -68,22 +75,12 @@
           <div id="newsPhase" class="small">通常</div>
         </div>
       </div>
-      <div id="newsLockText" class="news-lock good">通常ロジック</div>
+      <div id="newsLockText" class="news-lock good">設定確認中</div>
       <div class="note">V6.4：公式予定と速報の監視状態を表示。ニュース内容でCALL/PUTを直接決めません。</div>
     </div>
   </div>
 
-  <div class="sec">
-    <div class="sec-title"><h2>MOCK / PAPER</h2><span class="small">入口＋POSITION確認</span></div>
-    <div class="scenarios">
-      <button class="btn btn-primary" onclick="loadScenario('buy')">BUY</button>
-      <button class="btn" onclick="loadScenario('watch')">WATCH</button>
-      <button class="btn" onclick="loadScenario('chase')">CHASE</button>
-      <button class="btn" onclick="loadScenario('stale')">STALE</button>
-      <button class="btn" onclick="loadScenario('time')">TIME LOCK</button>
-      <button class="btn btn-danger" onclick="loadScenario('liq')">LIQUIDITY</button>
-    </div>
-  </div>
+
 
   <div class="sec">
     <div class="sec-title"><h2>SIGNAL</h2><span id="frozenTag" class="small"></span></div>
@@ -91,14 +88,21 @@
       <div class="sig-row">
         <div>
           <div class="label">DECISION</div>
-          <div id="decision" class="sig-big">PUT BUY</div>
-          <div id="candidate" class="small">667 PUT · 0DTE</div>
+          <div id="decision" class="sig-big">NO TRADE</div>
+          <div id="candidate" class="small">契約取得待ち</div>
         </div>
         <div>
           <div class="label" style="text-align:right">DIRECTION SCORE</div>
-          <div id="score" class="score">100</div>
+          <div id="score" class="score">--</div>
           <div id="priceFlag" class="small" style="text-align:right">価格条件 ○</div>
         </div>
+      </div>
+      <div id="decisionReason" class="small"></div>
+      <div id="decisionTime" class="small"></div>
+      <div id="buyContract" class="hidden">
+        <div id="buyContractText" class="ticket"></div>
+        <button id="webullBtn" class="action buy" style="width:100%" onclick="openWebull()" disabled>Webullで確認</button>
+        <div class="small">契約情報をコピーし、公式SPYページを開きます。満期・CALL/PUT・Strikeを照合して注文してください。</div>
       </div>
       <div id="reasons" class="reasons"></div>
     </div>
@@ -108,19 +112,24 @@
     <div class="sec-title"><h2>0DTE OPTION</h2><span class="small">当日満期のみ</span></div>
     <div class="card">
       <table class="option-table">
-        <tr><td>Expiration</td><td id="expiration">TODAY</td></tr>
-        <tr><td>Bid / Ask</td><td id="bidask">$0.70 / $0.73</td></tr>
-        <tr><td>Mid</td><td id="mid">$0.715</td></tr>
-        <tr><td>Spread</td><td id="spread">4.2% / $0.03</td></tr>
-        <tr><td>Delta</td><td id="delta">-0.34</td></tr>
-        <tr><td>Gamma</td><td id="gamma">0.081</td></tr>
-        <tr><td>IV</td><td id="iv">24.2%</td></tr>
-        <tr><td>Volume / OI</td><td id="voloi">860 / 2,180</td></tr>
-        <tr><td>Option quote age</td><td id="optionAge">0.6s</td></tr>
+        <tr><td>Option symbol</td><td id="optionSymbol">--</td></tr>
+        <tr><td>直近約定価格（注文価格ではありません）</td><td id="optionLastPrice">--</td></tr>
+        <tr><td>SPY Bid / Ask</td><td id="spyBidAsk">--</td></tr>
+        <tr><td>SPY出来高 / 1分足本数</td><td id="marketVolume">--</td></tr>
+        <tr><td>気配のデータ時刻</td><td id="quoteTime">--</td></tr>
+        <tr><td>Expiration</td><td id="expiration">--</td></tr>
+        <tr><td>Bid / Ask</td><td id="bidask">--</td></tr>
+        <tr><td>Mid</td><td id="mid">--</td></tr>
+        <tr><td>Spread</td><td id="spread">--</td></tr>
+        <tr><td>Delta</td><td id="delta">--</td></tr>
+        <tr><td>Gamma</td><td id="gamma">--</td></tr>
+        <tr><td>IV</td><td id="iv">--</td></tr>
+        <tr><td>Volume / OI</td><td id="voloi">--</td></tr>
+        <tr><td>Option quote age</td><td id="optionAge">--</td></tr>
       </table>
       <div class="actions">
         <button class="action" onclick="freezeSignal()">予測を固定</button>
-        <button id="webullBtn" class="action buy" onclick="openEntryTicket()">Webullで購入確認</button>
+        <button class="action" onclick="openEntryTicket()">契約情報を表示</button>
       </div>
       <div class="note">入口はV6.1正式条件を継承。OIや固定IV閾値はBUYのハード条件にしません。</div>
     </div>
@@ -168,11 +177,22 @@
     <div class="sec-title"><h2>LIVE接続</h2><span class="small">Vercel</span></div>
     <div class="card">
       <div class="small">Backend: https://spy0dte-live-backend-v2.vercel.app/</div>
-      <button class="btn btn-primary" style="width:100%;margin-top:9px" onclick="tryLive()">LIVE接続開始</button>
+      <button class="btn btn-primary" style="width:100%;margin-top:9px" onclick="tryLive()">実データを再取得</button>
       <div id="liveStatus" class="small"></div>
     </div>
   </div>
 
+<details class="sec"><summary>模擬データの検証（実購入には使えません）</summary>  <div class="sec">
+    <div class="sec-title"><h2>MOCK / PAPER</h2><span class="small">入口＋POSITION確認</span></div>
+    <div class="scenarios">
+      <button class="btn btn-primary" onclick="loadScenario('buy')">BUY</button>
+      <button class="btn" onclick="loadScenario('watch')">WATCH</button>
+      <button class="btn" onclick="loadScenario('chase')">CHASE</button>
+      <button class="btn" onclick="loadScenario('stale')">STALE</button>
+      <button class="btn" onclick="loadScenario('time')">TIME LOCK</button>
+      <button class="btn btn-danger" onclick="loadScenario('liq')">LIQUIDITY</button>
+    </div>
+  </div></details>
   <div class="sec">
     <div class="sec-title"><h2>PAPER LOG</h2><button class="btn" onclick="clearLogs()">ログ削除</button></div>
     <div class="card" id="logs"></div>
@@ -227,11 +247,12 @@ const scenarios={
  liq:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.4,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.60,ask:0.74,delta:-0.34,gamma:0.081,iv:24.2,volume:70,oi:200,optionAge:0.7,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'}
 };
 
-let state=structuredClone(scenarios.buy), frozen=null, liveTimer=null, ticketMode='ENTRY';
+let state={}, frozen=null, liveTimer=null, ticketMode='ENTRY';
+let runtimeConfig=null, liveGeneration=0, liveInFlight=false;
 let position=loadPosition();
 
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function money(x){return Number.isFinite(Number(x))?'$'+Number(x).toFixed(2):'--'}
+function money(x){return x!=null&&x!==''&&Number.isFinite(Number(x))?'$'+Number(x).toFixed(2):'--'}
 function pct(x,d=1){return Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+Number(x).toFixed(d)+'%':'--'}
 function deltaRange(band){if(band==='EARLY')return [0.25,0.40];if(band==='MID')return [0.30,0.45];if(band==='LATE')return [0.35,0.50];return null}
 function directionChecks(s,side){
@@ -254,11 +275,13 @@ function normalizeLiveNews(s){
   return {level,title:n.title||n.event||'LIVE NEWS',phase:n.phase||'LIVE',lock:Boolean(n.lock??level==='HIGH'),watch:Boolean(n.watch),source:n.source||'LIVE',minutes:n.minutes??null,nextAt:n.eventTime||n.at||null};
 }
 function getNewsRisk(s,now=Date.now()){
+ if(runtimeConfig?.newsMode==='OFF')return {level:'UNKNOWN',availability:'OFF',title:'突発ニュース未確認',phase:'OFF',lock:false,watch:false,source:'OFF'};
  const n=window.newsSnapshot?.newsRisk||s?.newsRisk;
  if(n && ['LOW','MEDIUM','HIGH'].includes(n.level) && typeof n.lock==='boolean' && typeof n.watch==='boolean' && Number.isFinite(Date.parse(n.validUntil)) && Date.parse(n.validUntil)>now && Date.parse(n.checkedAt)<=now+5000)return n;
  return {level:'MEDIUM',availability:'UNAVAILABLE',title:'newsRisk source unavailable',phase:'NORMAL',lock:true,watch:false,source:'ENGINE'};
 }
 async function refreshNews(){
+ if(runtimeConfig?.newsMode!=='ON')return;
  try {const r=await fetch(new URL('api/news',API_URL),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('news');window.newsSnapshot=await r.json();}
  catch(e){window.newsSnapshot=null;}
  render(false);
@@ -271,6 +294,17 @@ function newsCountdown(n){
 }
 function renderNewsRisk(n){
   n=n||getNewsRisk(state);
+  if(n.availability==='OFF'){
+    document.getElementById('newsCard').className='card news-card medium';
+    document.getElementById('newsLevel').textContent='ニュース監視OFF';
+    document.getElementById('newsLevel').className='news-level warn';
+    document.getElementById('newsEvent').textContent='突発ニュース未確認';
+    document.getElementById('newsCountdown').textContent='--';
+    document.getElementById('newsPhase').textContent='試用モード';
+    document.getElementById('newsSource').textContent='OFF';
+    document.getElementById('newsLockText').textContent='ニュースを購入判定に使用していません';
+    document.getElementById('newsLockText').className='news-lock warn';return;
+  }
   const unavailable=n.availability==='UNAVAILABLE';
   const level=String(n.level||'LOW').toUpperCase();
   const card=document.getElementById('newsCard'),lv=document.getElementById('newsLevel');
@@ -284,7 +318,7 @@ function renderNewsRisk(n){
   lock.textContent=n.lock?'新規ENTRY停止':n.watch?'新規ENTRYはWATCH扱い':'通常ロジック';
   lock.className='news-lock '+(n.lock?'bad':n.watch||level==='MEDIUM'?'warn':level==='UNKNOWN'?'bad':'good');
 }
-function evaluate(s){
+function evaluateBase(s){
  const R=CONFIG.rules;
  const bearish=directionChecks(s,'PUT'),bullish=directionChecks(s,'CALL');
  const b=bearish.filter(x=>x[1]).length*20,c=bullish.filter(x=>x[1]).length*20;
@@ -320,9 +354,53 @@ function evaluate(s){
  base.push({label:dr?`Delta ${dr[0].toFixed(2)}–${dr[1].toFixed(2)}`:'Delta TIME LOCK',state:deltaOk?'pass':'fail'});
  base.push({label:'追いかけ禁止',state:chaseLock?'fail':chaseWatch?'warn':'pass'});
  base.push({label:'Ask ≥ $'+R.lotteryAsk.toFixed(2),state:lottery?'warn':'pass'});
- base.push({label:'NEWS '+news.level+' · '+news.title,state:news.lock?'fail':news.watch||news.level==='MEDIUM'?'warn':'pass'});
+ base.push({label:'NEWS '+news.level+' · '+news.title,state:news.lock?'fail':news.watch||news.level==='MEDIUM'||news.availability==='OFF'?'warn':'pass'});
  return {side,score,decision,reasons:base,spreadAbs,spreadPct,dev,mid,band,deltaOk,fresh,liquid,blocks,news}
 }
+
+function elapsedSeconds(s){
+ if(!Number.isFinite(s._receivedAt))return Infinity;
+ const wall=Math.max(0,Date.now()-s._receivedAt);
+ const mono=typeof performance!=='undefined'&&Number.isFinite(s._receivedMono)?Math.max(0,performance.now()-s._receivedMono):wall;
+ return (Math.max(wall,mono)+(s._roundTripMs||0))/1000;
+}
+function dataAge(s,field){
+ const source=Date.parse(s[field]),server=Date.parse(s.serverTime);
+ return Number.isFinite(source)&&Number.isFinite(server)?(server-source)/1000+elapsedSeconds(s):Infinity;
+}
+function evaluate(s){
+ const e=evaluateBase(s);
+ if(s._mock===true)return e;
+ let decision='DATA ERROR',reason='Webull実データを取得できていません';
+ const sig=s.signal;
+ if(s.ok===true&&s.dataMode==='LIVE'&&s.environment==='prod'&&s.provider==='Webull OpenAPI'&&sig){
+   decision=sig.decision;reason=(sig.reasons||[]).join(' / ');
+   const expiry=(Date.parse(sig.validUntil)-Date.parse(s.serverTime))/1000;
+   if(decision.includes('BUY')||decision==='WATCH'){
+     if(!Number.isFinite(expiry)||elapsedSeconds(s)>=expiry){decision='NO TRADE';reason='データの有効期限切れ：再取得待ち';}
+     else if(runtimeConfig?.newsMode!==s.newsMode){decision='NO TRADE';reason='ニュース設定の再確認待ち';}
+     else if(s.side!==sig.side||!['CALL','PUT'].includes(sig.side)){decision='DATA ERROR';reason='判定方向と契約が一致しません';}
+   }
+   if(!['CALL BUY','PUT BUY','WATCH','NO TRADE','DATA ERROR'].includes(decision)){decision='DATA ERROR';reason='未対応の判定応答';}
+ }
+ const fresh=['spyPriceAt','spyQuoteAt','optionQuoteAt'].every(k=>dataAge(s,k)>=0&&dataAge(s,k)<=CONFIG.rules.quoteMaxAgeSec);
+ return {...e,decision,side:sig?.side||s.side||'NONE',score:sig?.score||0,fresh,blocks:[reason],
+   reasons:[...e.reasons,{label:reason,state:decision.includes('BUY')?'pass':decision==='WATCH'?'warn':'fail'}]};
+}
+function contractText(s=state){
+ return ['SPY '+(s.side||'--'),'Expiration: '+(s.expiration||'--'),'Strike: '+(s.strike??'--'),
+  s.optionSymbol||'', 'Bid / Ask: '+money(s.bid)+' / '+money(s.ask),
+  'Mid: '+money(s.mid),'Spread: '+money(s.spreadAbs)+' / '+Number(s.spreadPct).toFixed(2)+'%',
+  'SPY: '+money(s.spy),'取得: '+(s.fetchedAt||'--'),'自動注文OFF · Webullで最終確認'].join('\n');
+}
+function openWebull(){
+ if(state._mock||!evaluate(state).decision.includes('BUY')||position?.active){render(false);return false;}
+ const text=contractText();
+ window.open('https://www.webull.co.jp/ticker/nysearca-spy','_blank','noopener,noreferrer');
+ if(navigator.clipboard)navigator.clipboard.writeText(text).catch(()=>{});
+ return true;
+}
+function localTime(value){const t=Date.parse(value);return Number.isFinite(t)?new Date(t).toLocaleString('ja-JP',{hour12:false}) : '未取得';}
 
 function loadPosition(){try{return JSON.parse(localStorage.getItem(POSITION_KEY)||'null')}catch(e){return null}}
 function persistPosition(){if(position)localStorage.setItem(POSITION_KEY,JSON.stringify(position));else localStorage.removeItem(POSITION_KEY)}
@@ -377,18 +455,18 @@ function updatePositionFromState(){
 function render(updatePosition=true){
  const e=evaluate(state);
  renderNewsRisk(e.news);
- document.getElementById('spy').textContent=Number(state.spy).toFixed(2);
+ document.getElementById('spy').textContent=state.spy==null?'--':Number(state.spy).toFixed(2);
  document.getElementById('volLabel').textContent=state.volLabel||'VOL';
- document.getElementById('vix').textContent=Number.isFinite(Number(state.vix))?Number(state.vix).toFixed(2):'--';
+ document.getElementById('vix').textContent=state.vix!=null&&Number.isFinite(Number(state.vix))?Number(state.vix).toFixed(2):'--';
  document.getElementById('vwapDev').textContent=pct(e.dev,2);
  document.getElementById('vwapSlope').textContent='VWAP slope '+(state.vwapSlope<0?'↓':state.vwapSlope>0?'↑':'→');
  document.getElementById('band').textContent=e.band;
- document.getElementById('minutesToClose').textContent=Number.isFinite(Number(state.minutesToClose))?'残り '+Math.max(0,Math.round(state.minutesToClose))+'分':'残り --分';
- document.getElementById('spyAge').textContent='● '+Number(state.age??99).toFixed(1)+'s';
+ document.getElementById('minutesToClose').textContent=state.minutesToClose!=null&&Number.isFinite(Number(state.minutesToClose))?'残り '+Math.max(0,Math.round(state.minutesToClose))+'分':'残り --分';
+ document.getElementById('spyAge').textContent=state._mock?'模擬データ':Number.isFinite(dataAge(state,'spyPriceAt'))?'取得データ '+dataAge(state,'spyPriceAt').toFixed(1)+'秒前':'データ時刻不明';
  document.getElementById('vixAge').textContent='● '+Number(state.age??99).toFixed(1)+'s';
  const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
  document.getElementById('score').textContent=e.score;
- document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`${state.strike??'--'} ${e.side} · 0DTE`;
+ document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`SPY ${state.expiration||'--'} ${state.strike??'--'} ${state.side||e.side}`;
  document.getElementById('priceFlag').textContent=e.decision.includes('BUY')?'価格条件 ○':'価格条件 △';
  const card=document.getElementById('signalCard');card.className='card signal '+(e.decision.includes('BUY')?'buy':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'watch':'no');
  document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${escapeHTML(r.label)}</div>`).join('');
@@ -396,14 +474,27 @@ function render(updatePosition=true){
  document.getElementById('bidask').textContent=money(state.bid)+' / '+money(state.ask);
  document.getElementById('mid').textContent=Number.isFinite(e.mid)?'$'+e.mid.toFixed(3):'--';
  document.getElementById('spread').textContent=e.spreadPct.toFixed(1)+'% / $'+e.spreadAbs.toFixed(2);
- document.getElementById('delta').textContent=Number.isFinite(Number(state.delta))?Number(state.delta).toFixed(2):'--';
- document.getElementById('gamma').textContent=Number.isFinite(Number(state.gamma))?Number(state.gamma).toFixed(3):'--';
- document.getElementById('iv').textContent=Number.isFinite(Number(state.iv))?Number(state.iv).toFixed(1)+'%':'--';
+ document.getElementById('delta').textContent=state.delta!=null&&Number.isFinite(Number(state.delta))?Number(state.delta).toFixed(2):'--';
+ document.getElementById('gamma').textContent=state.gamma!=null&&Number.isFinite(Number(state.gamma))?Number(state.gamma).toFixed(3):'--';
+ document.getElementById('iv').textContent=state.iv!=null&&Number.isFinite(Number(state.iv))?Number(state.iv).toFixed(1)+'%':'--';
  document.getElementById('voloi').textContent=Number(state.volume||0).toLocaleString()+' / '+(state.oi==null?'—':Number(state.oi).toLocaleString());
- document.getElementById('optionAge').textContent=Number(state.optionAge??state.age??99).toFixed(1)+'s';
- const wb=document.getElementById('webullBtn'),canBuy=e.decision.includes('BUY')&&!position?.active;
- wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent=position?.active?'POSITION保有中':canBuy?'Webullで購入確認':'Webull連携ロック';
- const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(document.getElementById('modeBadge').textContent==='LIVE'?'LIVE':'MOCK / PAPER')+' · '+e.decision;
+ document.getElementById('optionAge').textContent=state._mock?'模擬データ':Number.isFinite(dataAge(state,'optionQuoteAt'))?dataAge(state,'optionQuoteAt').toFixed(1)+'s':'時刻未取得';
+ const wb=document.getElementById('webullBtn'),canBuy=!state._mock&&e.decision.includes('BUY')&&!position?.active;
+ wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent='Webullで確認';
+ document.getElementById('buyContract').classList.toggle('hidden',!canBuy);
+ document.getElementById('buyContractText').textContent=contractText();
+ const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(state._mock?'模擬データ / PAPER':'Webull実データ')+' · '+e.decision;
+ document.getElementById('connectionStatus').textContent='Webull：'+(state._mock?'模擬モード':state.connection==='CONNECTED'?'接続済み'+(e.fresh?'':'（購入用データは古い／不足）'):'未接続・再取得待ち');
+ document.getElementById('newsModeStatus').textContent=runtimeConfig?'ニュース監視'+runtimeConfig.newsMode:'ニュース監視：設定確認中';
+ document.getElementById('newsWarning').textContent=runtimeConfig?.newsMode==='ON'?'ニュース監視ON：取得状態はNEWS RISK欄':'突発ニュース未確認';
+ document.getElementById('lastUpdate').textContent='最終データ更新：'+localTime(state.fetchedAt);
+ document.getElementById('decisionReason').textContent=e.blocks.join(' / ');
+ document.getElementById('decisionTime').textContent='判定時刻：'+localTime(state.signal?.decisionAt);
+ document.getElementById('optionSymbol').textContent=state.optionSymbol||'--';
+ document.getElementById('optionLastPrice').textContent=money(state.optionLastPrice)+' · '+localTime(state.optionLastTradeAt);
+ document.getElementById('spyBidAsk').textContent=money(state.spyBid)+' / '+money(state.spyAsk);
+ document.getElementById('marketVolume').textContent=(state.spyVolume==null?'--':Number(state.spyVolume).toLocaleString())+' / '+(state.barsFound??'--');
+ document.getElementById('quoteTime').textContent=localTime(state.optionQuoteAt);
  document.getElementById('frozenTag').textContent=frozen?'FROZEN '+new Date(frozen.ts).toLocaleTimeString('ja-JP'):'';
  if(updatePosition)renderPosition();
 }
@@ -439,10 +530,10 @@ function renderPosition(){
  exitBtn.textContent=p.level==='exit'?'EXIT推奨 · Webullで決済確認':'Webullで決済確認';
 }
 
-function loadScenario(n){if(liveTimer)clearInterval(liveTimer);state=structuredClone(scenarios[n]);frozen=null;document.getElementById('modeBadge').textContent='MOCK / PAPER';render()}
+function loadScenario(n){liveGeneration++;if(liveTimer)clearTimeout(liveTimer);state={...structuredClone(scenarios[n]),_mock:true};frozen=null;document.getElementById('modeBadge').textContent='MOCK / PAPER';render()}
 function freezeSignal(){const e=evaluate(state);frozen={ts:Date.now(),state:structuredClone(state),eval:e};saveLog({type:'FREEZE',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,iv:state.iv,newsLevel:e.news.level,newsEvent:e.news.title,newsPhase:e.news.phase})}
-function entryTicketText(){const e=evaluate(state);return ['SPY 0DTE V6.4 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`NEWS: ${e.news.level} / ${e.news.title} / ${e.news.phase}`,`Decision: ${e.decision}`,'','V6.4: 0DTE RUNNER管理はPaper Entry記録後に開始'].join('\n')}
-function exitTicketText(){if(!position)return '';const p=position.last||updatePositionFromState();return ['SPY 0DTE V6.4 EXIT TICKET','SELL TO CLOSE',`SPY ${position.strike} ${position.side}`,'Expiry: TODAY','Qty: 1',`Current Bid: ${money(position.currentBid)}`,`Entry: ${money(position.entryAsk)}`,`P/L: ${pct(p.pnl)}`,`MFE: ${pct(p.peakPnl)}`,`MAE: ${pct(p.mae)}`,`Position decision: ${p.decision}`,`Exit reason: ${p.exitReason||'MANUAL_EXIT'}`].join('\n')}
+function entryTicketText(){const e=evaluate(state);return ['SPY 0DTE V6.4 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: '+(state.expiration||'未取得'),'Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`NEWS: ${e.news.level} / ${e.news.title} / ${e.news.phase}`,`Decision: ${e.decision}`,'','V6.4: 0DTE RUNNER管理はPaper Entry記録後に開始'].join('\n')}
+function exitTicketText(){if(!position)return '';const p=position.last||updatePositionFromState();return ['SPY 0DTE V6.4 EXIT TICKET','SELL TO CLOSE',`SPY ${position.strike} ${position.side}`,'Expiry: '+(position.expiration||'未取得'),'Qty: 1',`Current Bid: ${money(position.currentBid)}`,`Entry: ${money(position.entryAsk)}`,`P/L: ${pct(p.pnl)}`,`MFE: ${pct(p.peakPnl)}`,`MAE: ${pct(p.mae)}`,`Position decision: ${p.decision}`,`Exit reason: ${p.exitReason||'MANUAL_EXIT'}`].join('\n')}
 function openEntryTicket(){if(!evaluate(state).decision.includes('BUY'))return;ticketMode='ENTRY';document.getElementById('ticketTitle').textContent='WEBULL ENTRY TICKET';document.getElementById('ticket').textContent=entryTicketText();document.getElementById('entryTicketActions').classList.remove('hidden');document.getElementById('exitTicketActions').classList.add('hidden');document.getElementById('modal').classList.add('on')}
 function openExitTicket(){if(!position)return;ticketMode='EXIT';document.getElementById('ticketTitle').textContent='WEBULL EXIT TICKET';document.getElementById('ticket').textContent=exitTicketText();document.getElementById('entryTicketActions').classList.add('hidden');document.getElementById('exitTicketActions').classList.remove('hidden');document.getElementById('modal').classList.add('on')}
 function closeTicket(){document.getElementById('modal').classList.remove('on')}
@@ -466,22 +557,47 @@ function manualPaperExit(){if(position)exitPosition('MANUAL_EXIT')}
 function clearLogs(){localStorage.removeItem(LOG_KEY);renderLogs()}
 function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.4ログはありません。</div>';return}el.innerHTML=a.map(x=>{const extra=x.type==='EXIT'?` · ${x.reason||''} · P/L ${pct(x.pnl)}`:'';return `<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''}${extra}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`}).join('')}
 
-async function fetchLive(){
- const st=document.getElementById('liveStatus');st.textContent='接続中...';
+async function fetchLive(generation=liveGeneration){
+ if(liveInFlight)return false;
+ liveInFlight=true;
+ const st=document.getElementById('liveStatus');st.textContent='取得中...';
+ const started=Date.now();
  try{
    let liveUrl=API_URL;
    if(position?.active&&position.optionSymbol){const u=new URL(API_URL);u.searchParams.set('position_symbol',position.optionSymbol);liveUrl=u.toString()}
-   const r=await fetch(liveUrl,{cache:'no-store'}),data=await r.json();
-   if(!r.ok||data.ok===false)throw new Error(data.error||('HTTP '+r.status));
-   state={...data}; // never mix missing live fields with demo quotes
-   document.getElementById('modeBadge').textContent=data.liveReady?'LIVE':'PARTIAL';
-   st.textContent=(data.liveReady?'LIVE接続中':'一部接続')+(data.limitations?.length?' · '+data.limitations.join(' / '):'');
-   st.className='small '+(data.liveReady?'good':'warn');render();return true;
- }catch(e){state={};render();document.getElementById('modeBadge').textContent='UNAVAILABLE';st.textContent='LIVE未接続：'+e.message;st.className='small warn';return false}
+   const r=await fetch(liveUrl,{cache:'no-store',signal:AbortSignal.timeout(15000)}),data=await r.json();
+   if(generation!==liveGeneration)return false;
+   if(!r.ok||data.ok!==true)throw new Error(data.error||('HTTP '+r.status));
+   state={...data,_receivedAt:Date.now(),_receivedMono:typeof performance!=='undefined'?performance.now():null,_roundTripMs:Math.max(0,Date.now()-started-Math.max(0,Number(data.processingMs)||0))};
+   if(['OFF','ON'].includes(data.newsMode)&&data.autoTrade===false)runtimeConfig={newsMode:data.newsMode,autoTrade:false};
+   document.getElementById('modeBadge').textContent='LIVE / 手動注文';
+   st.textContent='Webull実データ取得済み'+(data.limitations?.length?' · '+data.limitations.join(' / '):'');
+   st.className='small good';render();return true;
+ }catch(e){
+   if(generation!==liveGeneration)return false;
+   state={};document.getElementById('modeBadge').textContent='DATA ERROR';render(false);
+   st.textContent='LIVE未接続：'+(e.name==='TimeoutError'?'取得時間超過':e.message);st.className='small warn';return false;
+ }finally{liveInFlight=false;}
 }
-async function tryLive(){const ok=await fetchLive();if(liveTimer)clearInterval(liveTimer);if(ok)liveTimer=setInterval(fetchLive,5000)}
-render();renderLogs();refreshNews();setInterval(refreshNews,60000);setInterval(()=>render(false),1000);
-setInterval(()=>renderNewsRisk(getNewsRisk(state)),30000);
+async function pollLive(generation){
+ if(generation!==liveGeneration)return;
+ await fetchLive(generation);
+ if(generation===liveGeneration)liveTimer=setTimeout(()=>pollLive(generation),state.marketSession?.open?1000:30000);
+}
+async function tryLive(){
+ const generation=++liveGeneration;clearTimeout(liveTimer);
+ await pollLive(generation);
+}
+async function startApp(){
+ try{const r=await fetch(new URL('api/config',API_URL),{cache:'no-store',signal:AbortSignal.timeout(10000)});const c=await r.json();
+   if(r.ok&&['ON','OFF'].includes(c.newsMode)&&c.autoTrade===false)runtimeConfig=c;
+ }catch(e){}
+ await tryLive();
+ if(runtimeConfig?.newsMode==='ON')refreshNews();
+}
+render();renderLogs();startApp();setInterval(refreshNews,60000);setInterval(()=>render(false),250);
+window.addEventListener('offline',()=>{state={};render(false)});
+window.addEventListener('pageshow',event=>{if(event.persisted){state={};render(false);tryLive();}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
 </script>
 </body>
