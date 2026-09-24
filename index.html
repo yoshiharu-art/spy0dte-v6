@@ -37,14 +37,14 @@
 <div class="wrap">
   <div class="header">
     <div>
-      <div class="kicker">SPY 0DTE · V6.4 MODULAR</div>
+      <div class="kicker">SPY 0DTE · V6.4 NEWS ENGINE</div>
       <h1>0DTE専用 Signal → Position → Exit</h1>
       <div class="small">入口の厳格化＋大化けを残す保有管理。Paper検証用。</div>
     </div>
-    <div class="badge" id="modeBadge">DEMO</div>
+    <div class="badge" id="modeBadge">MOCK / PAPER</div>
   </div>
 
-  <div id="staleBanner" class="banner">DEMO · 0DTE V6.4</div>
+  <div id="staleBanner" class="banner">MOCK / PAPER · 0DTE V6.4</div>
 
   <div class="grid4">
     <div class="card"><div class="label">SPY</div><div id="spy" class="value">667.18</div><div id="spyAge" class="small">● --</div></div>
@@ -74,7 +74,7 @@
   </div>
 
   <div class="sec">
-    <div class="sec-title"><h2>DEMO</h2><span class="small">入口＋POSITION確認</span></div>
+    <div class="sec-title"><h2>MOCK / PAPER</h2><span class="small">入口＋POSITION確認</span></div>
     <div class="scenarios">
       <button class="btn btn-primary" onclick="loadScenario('buy')">BUY</button>
       <button class="btn" onclick="loadScenario('watch')">WATCH</button>
@@ -403,7 +403,7 @@ function render(updatePosition=true){
  document.getElementById('optionAge').textContent=Number(state.optionAge??state.age??99).toFixed(1)+'s';
  const wb=document.getElementById('webullBtn'),canBuy=e.decision.includes('BUY')&&!position?.active;
  wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent=position?.active?'POSITION保有中':canBuy?'Webullで購入確認':'Webull連携ロック';
- const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(document.getElementById('modeBadge').textContent==='LIVE'?'LIVE':'DEMO')+' · '+e.decision;
+ const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(document.getElementById('modeBadge').textContent==='LIVE'?'LIVE':'MOCK / PAPER')+' · '+e.decision;
  document.getElementById('frozenTag').textContent=frozen?'FROZEN '+new Date(frozen.ts).toLocaleTimeString('ja-JP'):'';
  if(updatePosition)renderPosition();
 }
@@ -439,7 +439,7 @@ function renderPosition(){
  exitBtn.textContent=p.level==='exit'?'EXIT推奨 · Webullで決済確認':'Webullで決済確認';
 }
 
-function loadScenario(n){if(liveTimer)clearInterval(liveTimer);state=structuredClone(scenarios[n]);frozen=null;document.getElementById('modeBadge').textContent='DEMO';render()}
+function loadScenario(n){if(liveTimer)clearInterval(liveTimer);state=structuredClone(scenarios[n]);frozen=null;document.getElementById('modeBadge').textContent='MOCK / PAPER';render()}
 function freezeSignal(){const e=evaluate(state);frozen={ts:Date.now(),state:structuredClone(state),eval:e};saveLog({type:'FREEZE',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,iv:state.iv,newsLevel:e.news.level,newsEvent:e.news.title,newsPhase:e.news.phase})}
 function entryTicketText(){const e=evaluate(state);return ['SPY 0DTE V6.4 ORDER TICKET','BUY TO OPEN',`SPY ${state.strike} ${e.side}`,'Expiry: TODAY','Qty: 1',`Limit: <= ${money(state.ask)}`,`Bid/Ask: ${money(state.bid)} / ${money(state.ask)}`,`ET Band: ${e.band}`,`Direction score: ${e.score}`,`NEWS: ${e.news.level} / ${e.news.title} / ${e.news.phase}`,`Decision: ${e.decision}`,'','V6.4: 0DTE RUNNER管理はPaper Entry記録後に開始'].join('\n')}
 function exitTicketText(){if(!position)return '';const p=position.last||updatePositionFromState();return ['SPY 0DTE V6.4 EXIT TICKET','SELL TO CLOSE',`SPY ${position.strike} ${position.side}`,'Expiry: TODAY','Qty: 1',`Current Bid: ${money(position.currentBid)}`,`Entry: ${money(position.entryAsk)}`,`P/L: ${pct(p.pnl)}`,`MFE: ${pct(p.peakPnl)}`,`MAE: ${pct(p.mae)}`,`Position decision: ${p.decision}`,`Exit reason: ${p.exitReason||'MANUAL_EXIT'}`].join('\n')}
@@ -448,7 +448,7 @@ function openExitTicket(){if(!position)return;ticketMode='EXIT';document.getElem
 function closeTicket(){document.getElementById('modal').classList.remove('on')}
 async function copyTicket(){const t=ticketMode==='EXIT'?exitTicketText():entryTicketText();try{await navigator.clipboard.writeText(t);alert('注文票をコピーしました')}catch(e){alert(t)}}
 function getLogs(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch(e){return[]}}
-function saveLog(x){const n=getNewsRisk(state);x={...x,newsLevel:n.level,newsEvent:n.title,newsPhase:n.phase,newsSource:n.source,newsCategory:n.category??null,newsAge:n.ageMinutes??null,newsRelevance:n.relevance??null,newsEventId:n.eventId??null,newsAvailability:n.availability??'AVAILABLE'};const a=getLogs();a.unshift({ts:Date.now(),...x,dataMode:document.getElementById('modeBadge').textContent==='DEMO'?'MOCK / PAPER':'PAPER',newsSnapshot:window.newsSnapshot?{newsRisk:window.newsSnapshot.newsRisk,sources:window.newsSnapshot.sources}:null,policyVersion:'6.4-initial-20260924'});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
+function saveLog(x){const n=getNewsRisk(state);x={...x,newsLevel:n.level,newsEvent:n.title,newsPhase:n.phase,newsSource:n.source,newsCategory:n.category??null,newsAge:n.ageMinutes??null,newsRelevance:n.relevance??null,newsEventId:n.eventId??null,newsAvailability:n.availability??'AVAILABLE'};const a=getLogs();a.unshift({ts:Date.now(),...x,dataMode:document.getElementById('modeBadge').textContent==='MOCK / PAPER'?'MOCK / PAPER':'PAPER',newsSnapshot:window.newsSnapshot?{newsRisk:window.newsSnapshot.newsRisk,sources:window.newsSnapshot.sources}:null,policyVersion:'6.4-initial-20260924'});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
 function recordPaperEntry(){
  const e=evaluate(state);if(!e.decision.includes('BUY'))return;
  position={active:true,entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,optionSymbol:state.optionSymbol||null,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
