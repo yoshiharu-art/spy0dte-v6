@@ -24,7 +24,7 @@
 .position{border-width:2px}.position.runner{border-color:rgba(184,145,255,.7)}.position.hold{border-color:rgba(85,216,138,.5)}.position.risk{border-color:rgba(244,193,82,.65)}.position.exit{border-color:rgba(255,107,122,.75)}
 .sig-row{display:flex;justify-content:space-between;gap:10px}.sig-big{font-size:clamp(28px,7vw,38px);font-weight:900;margin-top:3px}.score{font-size:30px;font-weight:900;text-align:right}.position-main{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.position-main>div:last-child{text-align:right}
 .reasons{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:10px}.reason{border:1px solid var(--line);border-radius:8px;padding:7px 8px;font-size:9px;color:var(--muted)}.reason.pass{border-color:rgba(85,216,138,.35);color:#a8e9c2}.reason.fail{border-color:rgba(255,107,122,.28);color:#d89ca4}.reason.warn{border-color:rgba(244,193,82,.35);color:#e6cf94}
-.option-table{width:100%;border-collapse:collapse;font-size:10px}.option-table td{padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}.option-table td:last-child{text-align:right;font-weight:700}
+.option-table{width:100%;border-collapse:collapse;font-size:10px}.option-table td{overflow-wrap:anywhere;padding:7px 3px;border-bottom:1px solid rgba(255,255,255,.06)}.option-table td:last-child{text-align:right;font-weight:700}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.actions.one{grid-template-columns:1fr}.action{padding:12px;border-radius:10px;border:1px solid var(--line);background:#0c141c;color:var(--text);font-weight:800}.action.buy{border-color:rgba(85,216,138,.6);color:var(--good)}.action.sell{border-color:rgba(255,107,122,.6);color:var(--bad)}.action.lock{opacity:.45}.action.runner{border-color:rgba(184,145,255,.65);color:var(--purple)}
 .banner{padding:8px 10px;border-radius:8px;font-size:9px;margin-bottom:8px;border:1px solid var(--line);color:var(--muted)}.banner.stale{border-color:rgba(255,107,122,.55);color:var(--bad);background:rgba(255,107,122,.06)}.banner.warn{border-color:rgba(244,193,82,.55);color:var(--warn);background:rgba(244,193,82,.05)}
 .news-card{border-width:2px}.news-card.low{border-color:rgba(85,216,138,.35)}.news-card.medium{border-color:rgba(244,193,82,.55)}.news-card.high{border-color:rgba(255,107,122,.70)}.news-row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.news-level{font-size:22px;font-weight:900}.news-meta{text-align:right}.news-lock{margin-top:8px;font-size:10px;font-weight:800}
@@ -61,28 +61,6 @@
   </div>
 
   <div class="sec">
-    <div class="sec-title"><h2>NEWS RISK</h2><span id="newsSource" class="small">SCHEDULE</span></div>
-    <div id="newsCard" class="card news-card medium">
-      <div class="news-row">
-        <div>
-          <div class="label">MARKET EVENT RISK</div>
-          <div id="newsLevel" class="news-level warn">未確認</div>
-          <div id="newsEvent" class="small">突発ニュース未確認</div>
-        </div>
-        <div class="news-meta">
-          <div class="label">NEXT / PHASE</div>
-          <div id="newsCountdown" class="value">--</div>
-          <div id="newsPhase" class="small">通常</div>
-        </div>
-      </div>
-      <div id="newsLockText" class="news-lock good">設定確認中</div>
-      <div class="note">V6.4：公式予定と速報の監視状態を表示。ニュース内容でCALL/PUTを直接決めません。</div>
-    </div>
-  </div>
-
-
-
-  <div class="sec">
     <div class="sec-title"><h2>SIGNAL</h2><span id="frozenTag" class="small"></span></div>
     <div id="signalCard" class="card signal">
       <div class="sig-row">
@@ -104,9 +82,31 @@
         <button id="webullBtn" class="action buy" style="width:100%" onclick="openWebull()" disabled>Webullで確認</button>
         <div class="small">契約情報をコピーし、公式SPYページを開きます。満期・CALL/PUT・Strikeを照合して注文してください。</div>
       </div>
-      <div id="reasons" class="reasons"></div>
+      <details style="margin-top:10px"><summary class="small">判定の内訳を見る</summary><div id="reasons" class="reasons"></div></details>
     </div>
   </div>
+
+  <div class="sec">
+    <div class="sec-title"><h2>NEWS RISK</h2><span id="newsSource" class="small">SCHEDULE</span></div>
+    <div id="newsCard" class="card news-card medium">
+      <div class="news-row">
+        <div>
+          <div class="label">MARKET EVENT RISK</div>
+          <div id="newsLevel" class="news-level warn">未確認</div>
+          <div id="newsEvent" class="small">突発ニュース未確認</div>
+        </div>
+        <div class="news-meta">
+          <div class="label">NEXT / PHASE</div>
+          <div id="newsCountdown" class="value">--</div>
+          <div id="newsPhase" class="small">通常</div>
+        </div>
+      </div>
+      <div id="newsLockText" class="news-lock good">設定確認中</div>
+      <div class="note">V6.4：公式予定と速報の監視状態を表示。ニュース内容でCALL/PUTを直接決めません。</div>
+    </div>
+  </div>
+
+
 
   <div class="sec">
     <div class="sec-title"><h2>0DTE OPTION</h2><span class="small">当日満期のみ</span></div>
@@ -400,6 +400,7 @@ function openWebull(){
  if(navigator.clipboard)navigator.clipboard.writeText(text).catch(()=>{});
  return true;
 }
+function prettyReason(text){return String(text).replace(/spyPriceAt/g,'SPY価格').replace(/spyQuoteAt/g,'SPY気配').replace(/optionQuoteAt/g,'オプション気配').replace(/barAt/g,'1分足').replace(/NEWS UNKNOWN/g,'ニュース未確認');}
 function localTime(value){const t=Date.parse(value);return Number.isFinite(t)?new Date(t).toLocaleString('ja-JP',{hour12:false}) : '未取得';}
 
 function loadPosition(){try{return JSON.parse(localStorage.getItem(POSITION_KEY)||'null')}catch(e){return null}}
@@ -469,11 +470,11 @@ function render(updatePosition=true){
  document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`SPY ${state.expiration||'--'} ${state.strike??'--'} ${state.side||e.side}`;
  document.getElementById('priceFlag').textContent=e.decision.includes('BUY')?'価格条件 ○':'価格条件 △';
  const card=document.getElementById('signalCard');card.className='card signal '+(e.decision.includes('BUY')?'buy':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'watch':'no');
- document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${escapeHTML(r.label)}</div>`).join('');
- document.getElementById('expiration').textContent=state.expiration||'TODAY';
+ document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${escapeHTML(prettyReason(r.label))}</div>`).join('');
+ document.getElementById('expiration').textContent=state.expiration||'--';
  document.getElementById('bidask').textContent=money(state.bid)+' / '+money(state.ask);
  document.getElementById('mid').textContent=Number.isFinite(e.mid)?'$'+e.mid.toFixed(3):'--';
- document.getElementById('spread').textContent=e.spreadPct.toFixed(1)+'% / $'+e.spreadAbs.toFixed(2);
+ document.getElementById('spread').textContent=Number.isFinite(e.spreadAbs)&&state.bid!=null&&state.ask!=null?e.spreadPct.toFixed(1)+'% / $'+e.spreadAbs.toFixed(2):'--';
  document.getElementById('delta').textContent=state.delta!=null&&Number.isFinite(Number(state.delta))?Number(state.delta).toFixed(2):'--';
  document.getElementById('gamma').textContent=state.gamma!=null&&Number.isFinite(Number(state.gamma))?Number(state.gamma).toFixed(3):'--';
  document.getElementById('iv').textContent=state.iv!=null&&Number.isFinite(Number(state.iv))?Number(state.iv).toFixed(1)+'%':'--';
@@ -488,7 +489,7 @@ function render(updatePosition=true){
  document.getElementById('newsModeStatus').textContent=runtimeConfig?'ニュース監視'+runtimeConfig.newsMode:'ニュース監視：設定確認中';
  document.getElementById('newsWarning').textContent=runtimeConfig?.newsMode==='ON'?'ニュース監視ON：取得状態はNEWS RISK欄':'突発ニュース未確認';
  document.getElementById('lastUpdate').textContent='最終データ更新：'+localTime(state.fetchedAt);
- document.getElementById('decisionReason').textContent=e.blocks.join(' / ');
+ document.getElementById('decisionReason').textContent=state.timeBand==='CLOSED'?'市場時間外のため購入を停止しています。表示価格は参考値です。':e.blocks.map(prettyReason).join(' / ');
  document.getElementById('decisionTime').textContent='判定時刻：'+localTime(state.signal?.decisionAt);
  document.getElementById('optionSymbol').textContent=state.optionSymbol||'--';
  document.getElementById('optionLastPrice').textContent=money(state.optionLastPrice)+' · '+localTime(state.optionLastTradeAt);
@@ -524,7 +525,7 @@ function renderPosition(){
    {label:p.floor===null?'利益保護 OFF (+100%から)':'利益保護 '+pct(p.floor),state:p.floor===null?'warn':'pass'},
    {label:p.matched?'固定契約Quote一致':'固定契約Quote不一致',state:p.matched?'pass':'warn'}
  ];
- document.getElementById('positionReasons').innerHTML=reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${escapeHTML(r.label)}</div>`).join('');
+ document.getElementById('positionReasons').innerHTML=reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${escapeHTML(prettyReason(r.label))}</div>`).join('');
  document.getElementById('positionCard').className='card position '+p.level;
  const exitBtn=document.getElementById('exitBtn');
  exitBtn.textContent=p.level==='exit'?'EXIT推奨 · Webullで決済確認':'Webullで決済確認';
