@@ -4,12 +4,17 @@ const state=JSON.parse(fs.readFileSync('testdata/paper-synthetic-state.json','ut
 const html=fs.readFileSync('paper.html','utf8'),code=fs.readFileSync('paper.js','utf8');
 const dom=new JSDOM(html,{url:'https://yoshiharu-art.github.io/spy0dte-v6/paper.html',runScripts:'outside-only'}),w=dom.window,calls=[];
 w.AbortSignal={timeout:()=>undefined};w.setTimeout=()=>1;w.clearTimeout=()=>{};
-w.fetch=async(url,options={})=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.endsWith('health')?{release:'6.4-paper-auto-candidate-1',adminConfigured:true}:structuredClone(state)}};
+w.fetch=async(url,options={})=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.endsWith('health')?{release:'6.4-paper-auto-candidate-1',adminConfigured:true}:url.endsWith('exit-review')?{coverage:{journal_events_read:10,older_events_may_be_omitted:false},trades_omitted:0,rows:[{account_id:'SYNTHETIC',trade_id:'<img src=x onerror=alert(1)>',status:'MISSING_OBSERVATION',official_net_cents:-700,hypothetical_net_cents:null,difference_cents:null,observed_at:null}]}:structuredClone(state)}};
 w.eval(code+'\nwindow.__testShow=show;window.__testPoll=poll;');
 (async()=>{
  await new Promise(setImmediate);assert.equal(calls.length,1);assert.equal(calls[0].options.method,undefined);
  w.document.getElementById('token').value='SYNTHETIC_SECRET_NOT_REAL';w.document.getElementById('connect').click();await new Promise(setImmediate);
  assert.equal(w.document.getElementById('token').value,'');assert.match(w.document.getElementById('cash').textContent,/9,993/);
+ w.document.getElementById('review').click();await new Promise(setImmediate);
+ assert.match(w.document.getElementById('exitReview').textContent,/観測不足/);
+ assert.equal(w.document.querySelector('#exitReview img'),null);
+ assert.equal(calls.find(x=>x.url.endsWith('exit-review')).options.method,undefined);
+ assert.match(w.document.getElementById('cash').textContent,/9,993/);
  assert.match(w.document.getElementById('dataMode').textContent,/テスト/);assert.match(w.document.getElementById('history').textContent,/仮想約定/);
  assert.match(w.document.getElementById('news').textContent,/未確認/);assert.equal(w.document.querySelectorAll('#comparison tr').length,4);
  assert.equal(w.localStorage.length,0);assert.equal(w.sessionStorage.length,0);assert(!w.document.body.textContent.includes('SYNTHETIC_SECRET_NOT_REAL'));
