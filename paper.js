@@ -25,6 +25,10 @@ function show(s){
  lineList(el('operations'),[['最終処理成功',when(op.last_execution_success_at)],['最終相場受信',when(op.last_market_received_at)],['最終保存成功の記録時刻',when(op.last_save_at)],['実測の直近間隔',op.last_interval_seconds==null?'未測定':op.last_interval_seconds.toFixed(1)+'秒'],['観測範囲の最大間隔',op.max_interval_seconds==null?'未測定':op.max_interval_seconds.toFixed(1)+'秒'],['累計取得失敗回数',op.total_failures??'未取得'],['状態・停止理由',op.reason||'未確認']]);
  el('dataMode').textContent=s.data_mode==='LIVE'?'実相場を使うPAPER口座（気配の有効性は各判定で確認）':'テストデータ専用';
  el('decision').textContent=statusNames[a.state]||a.state;el('reason').textContent=reasons[a.last_reason]||a.last_reason;
+ const q=a.last_data_quality;
+ el('qualityAt').textContent=q?'判定時点の記録：'+when(q.checkedAt)+'（現在の気配ではありません）':'次のサーバー判定後に表示します。';
+ const qualityNames={MISSING_SOURCE_TIME:'時刻未取得',INVALID_SOURCE_TIME:'時刻不正',FUTURE_SOURCE_TIME:'未来時刻',STALE_SOURCE_TIME:'古いデータ',FRESH:'鮮度条件内',NOT_REQUIRED:'指標OFF'};
+ lineList(el('dataQuality'),q?[['リアルタイム資格',q.realtimeState==='VERIFIED'?'確認済み':'未確認'],['取引停止状態',q.haltState==='NOT_HALTED'?'停止なし確認済み':q.haltState==='HALTED'?'取引停止中':'未確認'],...Object.values(q.fields||{}).map(f=>[f.label,(qualityNames[f.status]||f.status)+(f.ageSeconds==null?'':' / '+Number(f.ageSeconds).toFixed(1)+'秒前・上限'+f.maxAgeSeconds+'秒')])]:[]);
  el('updated').textContent='最終実行 '+when(s.last_run)+' / 実行遅延 '+(s.execution_lag_seconds??'--')+'秒';
  for(const [id,key] of Object.entries({equity:'equity_cents',cash:'cash_cents',daily:'day_pnl_cents',realized:'realized_cents',unrealized:'unrealized_cents',fees:'fees_cents'}))el(id).textContent=usd(a[key]);
  el('dd').textContent=a.max_drawdown_pct.toFixed(2)+'%';el('uptime').textContent=percent(s.observed_uptime);

@@ -2,7 +2,7 @@
   "name": "spy0dte-v64-ui-tests",
   "private": true,
   "scripts": {
-    "test": "node test_trial.cjs && node test_paper.cjs"
+    "test": "node test_trial.cjs && node test_paper.cjs && node test_retry.cjs"
   },
   "devDependencies": {
     "jsdom": "30.1.1"

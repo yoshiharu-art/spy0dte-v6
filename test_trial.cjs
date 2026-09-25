@@ -25,6 +25,7 @@ assert.equal(x.run('openWebull()'),false,'simulation cannot open a purchase link
 x.run(`state={...scenarios.buy,ok:true,dataMode:'LIVE',provider:'Webull OpenAPI',environment:'prod',newsMode:'OFF',
  serverTime:new Date(Date.now()).toISOString(),fetchedAt:new Date(Date.now()).toISOString(),
  spyPriceAt:new Date(Date.now()-100).toISOString(),spyQuoteAt:new Date(Date.now()-100).toISOString(),optionQuoteAt:new Date(Date.now()-100).toISOString(),
+ barAt:new Date(Date.now()-60000).toISOString(),volPriceAt:new Date(Date.now()-20000).toISOString(),
  _receivedAt:Date.now(),_receivedMono:performance.now(),_roundTripMs:100,optionSymbol:'SPY260924P00667000',expiration:'2026-09-24',
  signal:{decision:'PUT BUY',side:'PUT',score:100,reasons:['unit fixture'],decisionAt:new Date(Date.now()).toISOString(),validUntil:new Date(Date.now()+1900).toISOString()}};`);
 assert.equal(x.run('evaluate(state).decision'),'PUT BUY');
@@ -43,3 +44,19 @@ x.run(`position={active:true,entryTs:Date.now(),entryAsk:1,currentBid:1,peakBid:
 const before=x.run('JSON.stringify(position)');x.run('render(false);render(false)');assert.equal(x.run('JSON.stringify(position)'),before);
 assert(!html.slice(0,html.indexOf('<script>')).includes('>PUT BUY<'));
 console.log('PASS: preserved V6.4 core/position functions; live/off/on, no dummy startup, stale expiry, Webull contract/link, mock isolation.');
+
+// Live diagnostics use each source timestamp, not the aggregate/receipt age.
+x.run("runtimeConfig={newsMode:'OFF'};state={...state,newsMode:'OFF',_receivedAt:Date.now(),_receivedMono:performance.now(),serverTime:new Date(Date.now()).toISOString(),volPriceAt:new Date(Date.now()-230000).toISOString(),age:0.1};render(false)");
+assert.match(x.els.get('vixAge').textContent,/230/);
+assert.equal(x.els.get('vixAge').textContent,'最終約定 230.1秒前');
+assert.match(x.run("evaluate(state).blocks.join(' / ')"),/VIXY最終約定：230/);
+assert.match(x.els.get('paperReadiness').textContent,/リアルタイム資格未確認/);
+assert.match(x.els.get('paperReadiness').textContent,/取引停止状態未確認/);
+x.run("state.marketSession={open:false,calendarReady:true};state.timeBand='CLOSED';state.connection='CONNECTED';render(false)");
+assert.match(x.els.get('connectionStatus').textContent,/市場時間外・参考表示/);
+assert(!x.run("JSON.stringify(evaluate(state).reasons)").includes('上限2秒'));
+assert(!x.run("JSON.stringify(evaluate(state).reasons)").includes('Quote ≤'));
+x.run("state={...state,marketSession:{open:true,calendarReady:true},timeBand:'MID',signal:{...state.signal,decision:'CALL BUY',side:'CALL',validUntil:new Date(Date.now()+10000).toISOString()},side:'CALL'}");
+assert.equal(x.run('evaluate(state).decision'),'NO TRADE','bad live timestamps cannot be overridden by BUY');
+assert.equal(x.run('openWebull()'),false);
+console.log('PASS: per-source freshness, expired BUY blocks, closed-market reference display, PAPER prerequisites, no stale legacy quote labels.');

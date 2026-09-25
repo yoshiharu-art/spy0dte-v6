@@ -31,6 +31,7 @@ w.eval(code+'\nwindow.__testShow=show;window.__testPoll=poll;');
  assert(!/localStorage|sessionStorage|window\.open/.test(code));
  assert(!/submit_order|place_order|cancel_order|transfer_funds/.test(code));
  assert(!calls.some(x=>x.url.endsWith('tick')));
+ const diagnosed=structuredClone(state);diagnosed.accounts['V64_BASELINE_1:STANDARD'].last_data_quality={checkedAt:'2026-09-24T17:00:00Z',realtimeState:'UNVERIFIED',haltState:'UNVERIFIED',fields:{volPriceAt:{label:'VIXY代理指標',status:'STALE_SOURCE_TIME',ageSeconds:230,maxAgeSeconds:60}}};w.__testShow(diagnosed);assert.match(w.document.getElementById('dataQuality').textContent,/230.0秒前/);assert.match(w.document.getElementById('dataQuality').textContent,/リアルタイム資格未確認/);assert.match(w.document.getElementById('qualityAt').textContent,/現在の気配ではありません/);
  const beforeClose=calls.length;w.dispatchEvent(new w.Event('pagehide'));await w.__testPoll();assert.equal(calls.length,beforeClose);
  console.log('PASS: PAPER DOM render, 4 accounts, TEST label, UNKNOWN news, start/pause server calls, read-only polling, no browser tick, stale status, page-close stops reads only, memory-only auth, XSS text rendering, no live order endpoints.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
