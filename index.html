@@ -249,7 +249,7 @@ const scenarios={
  liq:{spy:667.18,open:668.42,vwap:668.12,vwapSlope:-1,mom5:-0.31,vix:19.4,vixChange:0.62,volLabel:'VIXY proxy',side:'PUT',strike:667,bid:0.60,ask:0.74,delta:-0.34,gamma:0.081,iv:24.2,volume:70,oi:200,optionAge:0.7,age:0.7,timeBand:'MID',minutesToClose:180,expiration:'TODAY'}
 };
 
-let state={}, frozen=null, liveTimer=null, ticketMode='ENTRY';
+let state={_loading:true}, frozen=null, liveTimer=null, ticketMode='ENTRY';
 let runtimeConfig=null, liveGeneration=0, liveInFlight=false;
 let position=loadPosition();
 
@@ -381,6 +381,10 @@ function freshnessRows(s){
 function evaluate(s){
  const e=evaluateBase(s);
  if(s._mock===true)return e;
+ if(s._loading===true&&s.ok!==true){
+   const reason='Webull実データを取得中です';
+   return {...e,decision:'取得中',side:'NONE',score:0,fresh:false,blocks:[reason],reasons:[{label:reason,state:'warn'}]};
+ }
  let decision='DATA ERROR',reason='Webull実データを取得できていません';
  const sig=s.signal;
  if(s.ok===true&&s.dataMode==='LIVE'&&s.environment==='prod'&&s.provider==='Webull OpenAPI'&&sig){
@@ -481,7 +485,7 @@ function render(updatePosition=true){
  document.getElementById('spyAge').textContent=state._mock?'模擬データ':Number.isFinite(dataAge(state,'spyPriceAt'))?'取得データ '+dataAge(state,'spyPriceAt').toFixed(1)+'秒前':'データ時刻不明';
  const volAge=dataAge(state,'volPriceAt');
  document.getElementById('vixAge').textContent=state._mock?'模擬データ':Number.isFinite(volAge)&&volAge>=0?'最終約定 '+volAge.toFixed(1)+'秒前':'最終約定時刻 未取得・不正';
- const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
+ const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision==='取得中'||e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
  document.getElementById('score').textContent=e.score;
  document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`SPY ${state.expiration||'--'} ${state.strike??'--'} ${state.side||e.side}`;
  document.getElementById('priceFlag').textContent=e.decision.includes('BUY')?'価格条件 ○':'価格条件 △';
@@ -502,6 +506,10 @@ function render(updatePosition=true){
  document.getElementById('buyContractText').textContent=contractText();
  const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(state._mock?'模擬データ / PAPER':'Webull実データ')+' · '+e.decision;
  document.getElementById('connectionStatus').textContent='Webull：'+(state._mock?'模擬モード':state.connection==='CONNECTED'?'接続済み'+(state.timeBand==='CLOSED'?'（市場時間外・参考表示）':e.fresh?'（判定用データ更新済み）':'（判定用データの更新待ち）'):'未接続・再取得待ち');
+ if(state._loading===true){
+   document.getElementById('connectionStatus').textContent='Webull：接続・初回データを確認中';
+   document.getElementById('modeBadge').textContent='初回データ取得中';
+ }
  document.getElementById('newsModeStatus').textContent=runtimeConfig?'ニュース監視'+runtimeConfig.newsMode:'ニュース監視：設定確認中';
  document.getElementById('newsWarning').textContent=runtimeConfig?.newsMode==='ON'?'ニュース監視ON：取得状態はNEWS RISK欄':'突発ニュース未確認';
  document.getElementById('lastUpdate').textContent='最終データ更新：'+localTime(state.fetchedAt);

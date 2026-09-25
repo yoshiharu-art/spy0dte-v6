@@ -15,7 +15,13 @@ const x=load(html),old=load(cp.execFileSync('git',['show','d7e26db8d861073e838ea
 for(const n of ['directionChecks','deltaRange','sideScore','positionCore','profitFloor','updatePositionFromState','exitPosition','confirmPaperExit','manualPaperExit'])assert.equal(x.ctx[n].toString(),old.ctx[n].toString(),n);
 assert.equal(x.ctx.evaluateBase.toString().replace('function evaluateBase','function evaluate').replace("||news.availability==='OFF'",''),old.ctx.evaluate.toString());
 assert.equal(x.run('state.spy'),undefined,'startup must not show a demo price');
-assert.equal(x.run('evaluate(state).decision'),'DATA ERROR');
+assert.equal(x.run('evaluate(state).decision'),'取得中');
+x.run('render(false)');
+assert.equal(x.els.get('webullBtn').disabled,true,'loading must never enable a purchase');
+assert.equal(x.els.get('modeBadge').textContent,'初回データ取得中');
+assert.match(x.els.get('decision').className,/warn/);
+x.run('state={}');
+assert.equal(x.run('evaluate(state).decision'),'DATA ERROR','a real failed request remains an error');
 x.run("runtimeConfig={newsMode:'OFF',autoTrade:false};");
 assert.equal(x.run('getNewsRisk(state).level'),'UNKNOWN');
 assert.equal(x.run('getNewsRisk(state).title'),'突発ニュース未確認');
