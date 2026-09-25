@@ -1,0 +1,31 @@
+// DOM unit verification; no browser, live data, network or secret credentials.
+const fs=require('fs'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
+const state=JSON.parse(fs.readFileSync('testdata/paper-synthetic-state.json','utf8'));
+const html=fs.readFileSync('paper.html','utf8'),code=fs.readFileSync('paper.js','utf8');
+const dom=new JSDOM(html,{url:'https://yoshiharu-art.github.io/spy0dte-v6/paper.html',runScripts:'outside-only'}),w=dom.window,calls=[];
+w.AbortSignal={timeout:()=>undefined};w.setTimeout=()=>1;w.clearTimeout=()=>{};
+w.fetch=async(url,options={})=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.endsWith('health')?{release:'6.4-paper-auto-candidate-1',adminConfigured:true}:structuredClone(state)}};
+w.eval(code+'\nwindow.__testShow=show;window.__testPoll=poll;');
+(async()=>{
+ await new Promise(setImmediate);assert.equal(calls.length,1);assert.equal(calls[0].options.method,undefined);
+ w.document.getElementById('token').value='SYNTHETIC_SECRET_NOT_REAL';w.document.getElementById('connect').click();await new Promise(setImmediate);
+ assert.equal(w.document.getElementById('token').value,'');assert.match(w.document.getElementById('cash').textContent,/9,993/);
+ assert.match(w.document.getElementById('dataMode').textContent,/テスト/);assert.match(w.document.getElementById('history').textContent,/仮想約定/);
+ assert.match(w.document.getElementById('news').textContent,/未確認/);assert.equal(w.document.querySelectorAll('#comparison tr').length,4);
+ assert.equal(w.localStorage.length,0);assert.equal(w.sessionStorage.length,0);assert(!w.document.body.textContent.includes('SYNTHETIC_SECRET_NOT_REAL'));
+ w.document.getElementById('start').click();await new Promise(setImmediate);
+ assert(calls.some(x=>x.url.endsWith('command')&&JSON.parse(x.options.body).command==='start'));
+ assert(!calls.some(x=>x.url.endsWith('tick')));
+ await w.__testPoll();assert(calls.at(-1).url.endsWith('status'));assert.equal(calls.at(-1).options.method,undefined);
+ const monitored=structuredClone(state);monitored.operations={status:'STOPPED',last_save_at:'2026-09-24T17:03:00Z',last_interval_seconds:60,max_interval_seconds:70,total_failures:2,reason:'RUNNER_HEARTBEAT_MISSING'};w.__testShow(monitored);assert.match(w.document.getElementById('runtime').textContent,/停止/);assert.match(w.document.getElementById('operations').textContent,/60.0秒/);
+ w.document.getElementById('pause').click();await new Promise(setImmediate);
+ assert(calls.some(x=>x.url.endsWith('command')&&JSON.parse(x.options.body).command==='pause'));
+ const malicious=structuredClone(state);malicious.accounts['V64_BASELINE_1:STANDARD'].last_reason='<img src=x onerror=alert(1)>';
+ w.__testShow(malicious);assert.equal(w.document.querySelector('#reason img'),null);
+ assert(calls.every(x=>x.url.startsWith('https://spy0dte-live-backend-v2.vercel.app/api/paper/')));
+ assert(!/localStorage|sessionStorage|window\.open/.test(code));
+ assert(!/submit_order|place_order|cancel_order|transfer_funds/.test(code));
+ assert(!calls.some(x=>x.url.endsWith('tick')));
+ const beforeClose=calls.length;w.dispatchEvent(new w.Event('pagehide'));await w.__testPoll();assert.equal(calls.length,beforeClose);
+ console.log('PASS: PAPER DOM render, 4 accounts, TEST label, UNKNOWN news, start/pause server calls, read-only polling, no browser tick, stale status, page-close stops reads only, memory-only auth, XSS text rendering, no live order endpoints.');
+})().catch(e=>{console.error(e);process.exitCode=1;});
