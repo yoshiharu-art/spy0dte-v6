@@ -51,6 +51,7 @@
     <div id="newsModeStatus" class="warn">ニュース監視：設定確認中</div>
     <div id="newsWarning" class="small warn">突発ニュース未確認</div>
     <div id="lastUpdate" class="small">最終データ更新：未取得</div>
+    <div id="paperReadiness" class="small warn">仮想売買のデータ条件：確認待ち</div>
     <div class="small">自動注文OFF · 注文はWebullで確認して行ってください</div>
   </div>
 
@@ -369,6 +370,14 @@ function dataAge(s,field){
  const source=Date.parse(s[field]),server=Date.parse(s.serverTime);
  return Number.isFinite(source)&&Number.isFinite(server)?(server-source)/1000+elapsedSeconds(s):Infinity;
 }
+function freshnessRows(s){
+ const specs=[['spyPriceAt','SPY最終約定',2],['spyQuoteAt','SPY気配',2],['optionQuoteAt','オプション気配',2],['barAt','1分足',90],['volPriceAt','VIXY最終約定',60]];
+ return specs.filter(([field])=>field!=='volPriceAt'||s.volRequired!==false||s.vixChange!=null).map(([field,label,limit])=>{
+   const seconds=dataAge(s,field),fresh=Number.isFinite(seconds)&&seconds>=0&&seconds<=limit;
+   const status=!Number.isFinite(seconds)?'時刻未取得':seconds<0?'未来時刻':seconds.toFixed(1)+'秒前 / 上限'+limit+'秒';
+   return {field,fresh,label:label+'：'+status,state:fresh?'pass':'fail'};
+ });
+}
 function evaluate(s){
  const e=evaluateBase(s);
  if(s._mock===true)return e;
@@ -384,9 +393,14 @@ function evaluate(s){
    }
    if(!['CALL BUY','PUT BUY','WATCH','NO TRADE','DATA ERROR'].includes(decision)){decision='DATA ERROR';reason='未対応の判定応答';}
  }
- const fresh=['spyPriceAt','spyQuoteAt','optionQuoteAt'].every(k=>dataAge(s,k)>=0&&dataAge(s,k)<=CONFIG.rules.quoteMaxAgeSec);
+ const rows=freshnessRows(s),fresh=rows.every(r=>r.fresh),closed=s.marketSession?.open===false&&s.marketSession?.calendarReady===true;
+ if(decision.includes('BUY')&&!fresh){decision='NO TRADE';reason='購入用データの更新待ち';}
+ const expired=reason==='データの有効期限切れ：再取得待ち';
+ if(!closed&&!fresh&&s.ok===true){const details=rows.filter(r=>!r.fresh).map(r=>r.label).join(' / ');reason=(expired?'判定の有効期限切れ：更新待ち':reason)+' / '+details;}
+ const conditions=directionChecks(s,sig?.side||s.side).map(([label,passed])=>({label,state:passed?'pass':'warn'}));
+ const dataReasons=closed?[{label:'市場時間外：価格・時刻は前回の参考値です',state:'warn'}]:rows;
  return {...e,decision,side:sig?.side||s.side||'NONE',score:sig?.score||0,fresh,blocks:[reason],
-   reasons:[...e.reasons,{label:reason,state:decision.includes('BUY')?'pass':decision==='WATCH'?'warn':'fail'}]};
+   reasons:[...conditions,...dataReasons,{label:reason,state:decision.includes('BUY')?'pass':decision==='WATCH'||closed?'warn':'fail'}]};
 }
 function contractText(s=state){
  return ['SPY '+(s.side||'--'),'Expiration: '+(s.expiration||'--'),'Strike: '+(s.strike??'--'),
@@ -465,7 +479,8 @@ function render(updatePosition=true){
  document.getElementById('band').textContent=e.band;
  document.getElementById('minutesToClose').textContent=state.minutesToClose!=null&&Number.isFinite(Number(state.minutesToClose))?'残り '+Math.max(0,Math.round(state.minutesToClose))+'分':'残り --分';
  document.getElementById('spyAge').textContent=state._mock?'模擬データ':Number.isFinite(dataAge(state,'spyPriceAt'))?'取得データ '+dataAge(state,'spyPriceAt').toFixed(1)+'秒前':'データ時刻不明';
- document.getElementById('vixAge').textContent='● '+Number(state.age??99).toFixed(1)+'s';
+ const volAge=dataAge(state,'volPriceAt');
+ document.getElementById('vixAge').textContent=state._mock?'模擬データ':Number.isFinite(volAge)&&volAge>=0?'最終約定 '+volAge.toFixed(1)+'秒前':'最終約定時刻 未取得・不正';
  const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
  document.getElementById('score').textContent=e.score;
  document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`SPY ${state.expiration||'--'} ${state.strike??'--'} ${state.side||e.side}`;
@@ -486,10 +501,14 @@ function render(updatePosition=true){
  document.getElementById('buyContract').classList.toggle('hidden',!canBuy);
  document.getElementById('buyContractText').textContent=contractText();
  const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(state._mock?'模擬データ / PAPER':'Webull実データ')+' · '+e.decision;
- document.getElementById('connectionStatus').textContent='Webull：'+(state._mock?'模擬モード':state.connection==='CONNECTED'?'接続済み'+(e.fresh?'':'（購入用データは古い／不足）'):'未接続・再取得待ち');
+ document.getElementById('connectionStatus').textContent='Webull：'+(state._mock?'模擬モード':state.connection==='CONNECTED'?'接続済み'+(state.timeBand==='CLOSED'?'（市場時間外・参考表示）':e.fresh?'（判定用データ更新済み）':'（判定用データの更新待ち）'):'未接続・再取得待ち');
  document.getElementById('newsModeStatus').textContent=runtimeConfig?'ニュース監視'+runtimeConfig.newsMode:'ニュース監視：設定確認中';
  document.getElementById('newsWarning').textContent=runtimeConfig?.newsMode==='ON'?'ニュース監視ON：取得状態はNEWS RISK欄':'突発ニュース未確認';
  document.getElementById('lastUpdate').textContent='最終データ更新：'+localTime(state.fetchedAt);
+ const paperBlocks=[];
+ if(state.realtimeVerified!==true)paperBlocks.push('リアルタイム資格未確認');
+ if(state.marketHalted!==false)paperBlocks.push(state.marketHalted===true?'取引停止中':'取引停止状態未確認');
+ document.getElementById('paperReadiness').textContent=state._mock?'模擬データ：自動仮想売買とは別':state.ok!==true?'仮想売買のデータ条件：確認待ち':paperBlocks.length?'自動仮想売買は待機：'+paperBlocks.join(' / '):'リアルタイム・停止状態の確認済み。口座の開始状態・売買条件は検証画面で確認';
  document.getElementById('decisionReason').textContent=state.timeBand==='CLOSED'?'市場時間外のため購入を停止しています。表示価格は参考値です。':e.blocks.map(prettyReason).join(' / ');
  document.getElementById('decisionTime').textContent='判定時刻：'+localTime(state.signal?.decisionAt);
  document.getElementById('optionSymbol').textContent=state.optionSymbol||'--';
@@ -559,16 +578,44 @@ function manualPaperExit(){if(position)exitPosition('MANUAL_EXIT')}
 function clearLogs(){localStorage.removeItem(LOG_KEY);renderLogs()}
 function renderLogs(){const a=getLogs(),el=document.getElementById('logs');if(!a.length){el.innerHTML='<div class="small">まだV6.4ログはありません。</div>';return}el.innerHTML=a.map(x=>{const extra=x.type==='EXIT'?` · ${x.reason||''} · P/L ${pct(x.pnl)}`:'';return `<div class="log"><div><b>${x.type}</b> · ${x.side||'-'} ${x.strike||''}${extra}</div><div>${new Date(x.ts).toLocaleTimeString('ja-JP')} · ${x.decision||''}</div></div>`}).join('')}
 
+// DATA-QUALITY RETRY V2: transport retry only; never extends quote/signal validity.
+const liveRetryV2 = { failures: 0, notBeforeMs: 0 };
+function liveRetryAfterMsV2(headers, nowMs=Date.now()){
+ const raw=headers?.get?.('Retry-After');
+ if(typeof raw!=='string'||!raw.trim())return 0;
+ const value=raw.trim();
+ if(/^\d+(?:\.\d+)?$/.test(value)){
+   const ms=Number(value)*1000;
+   return Number.isFinite(ms)?Math.max(0,Math.ceil(ms)):0;
+ }
+ const target=Date.parse(value),server=Date.parse(headers?.get?.('Date')||'');
+ return Number.isFinite(target)?Math.max(0,target-(Number.isFinite(server)?server:nowMs)):0;
+}
+function livePollDelayV2(success){
+ const remaining=Math.max(0,liveRetryV2.notBeforeMs-Date.now());
+ if(success&&typeof state.marketSession?.open==='boolean'){
+   liveRetryV2.failures=0;
+   return Math.max(remaining,state.marketSession.open?1000:30000);
+ }
+ // A failed or unknown result is NOT evidence that the exchange is closed.
+ liveRetryV2.failures=Math.min(5,liveRetryV2.failures+1);
+ const backoff=Math.min(30000,2000*2**(liveRetryV2.failures-1));
+ return Math.max(remaining,backoff);
+}
 async function fetchLive(generation=liveGeneration){
- if(liveInFlight)return false;
+ if(liveInFlight||Date.now()<liveRetryV2.notBeforeMs)return false;
  liveInFlight=true;
  const st=document.getElementById('liveStatus');st.textContent='取得中...';
  const started=Date.now();
  try{
    let liveUrl=API_URL;
    if(position?.active&&position.optionSymbol){const u=new URL(API_URL);u.searchParams.set('position_symbol',position.optionSymbol);liveUrl=u.toString()}
-   const r=await fetch(liveUrl,{cache:'no-store',signal:AbortSignal.timeout(15000)}),data=await r.json();
+   const r=await fetch(liveUrl,{cache:'no-store',signal:AbortSignal.timeout(15000)});
    if(generation!==liveGeneration)return false;
+   liveRetryV2.notBeforeMs=Date.now()+liveRetryAfterMsV2(r.headers);
+   const data=await r.json();
+   if(generation!==liveGeneration)return false;
+   if(data.error==='WEBULL_HTTP_429')liveRetryV2.notBeforeMs=Math.max(liveRetryV2.notBeforeMs,Date.now()+60000);
    if(!r.ok||data.ok!==true)throw new Error(data.error||('HTTP '+r.status));
    state={...data,_receivedAt:Date.now(),_receivedMono:typeof performance!=='undefined'?performance.now():null,_roundTripMs:Math.max(0,Date.now()-started-Math.max(0,Number(data.processingMs)||0))};
    if(['OFF','ON'].includes(data.newsMode)&&data.autoTrade===false)runtimeConfig={newsMode:data.newsMode,autoTrade:false};
@@ -583,8 +630,8 @@ async function fetchLive(generation=liveGeneration){
 }
 async function pollLive(generation){
  if(generation!==liveGeneration)return;
- await fetchLive(generation);
- if(generation===liveGeneration)liveTimer=setTimeout(()=>pollLive(generation),state.marketSession?.open?1000:30000);
+ const success=await fetchLive(generation);
+ if(generation===liveGeneration)liveTimer=setTimeout(()=>pollLive(generation),Math.min(2147483647,livePollDelayV2(success)));
 }
 async function tryLive(){
  const generation=++liveGeneration;clearTimeout(liveTimer);
