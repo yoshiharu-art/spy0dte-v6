@@ -35,14 +35,23 @@ function show(s){
  el('groups').replaceChildren();for(const [kind,buckets] of Object.entries(a.report.groups)){const h=document.createElement('h3');h.textContent=({time_band:'時間帯',remaining:'残り時間',holding:'保有時間',side:'CALL / PUT',out_reason:'OUT理由',strategy:'戦略版',day:'日次',week:'週次'})[kind];el('groups').append(h);for(const [name,v] of Object.entries(buckets)){const row=document.createElement('p');row.textContent=name+'：'+v.trades+'件 / $'+v.net.toFixed(2)+' / '+v.status;el('groups').append(row);}}
  el('unresolved').textContent='未解決 '+a.report.unresolved_count+'件 / 全損＋決済費用の保守評価 $'+a.report.unresolved_conservative_loss_usd.toFixed(2)+'。正式損益には未決済のまま残します。';
  el('history').replaceChildren();for(const t of [...a.history].reverse()){const div=document.createElement('div');div.className='trade';div.textContent=t.contract.side+' '+t.contract.strike+' / '+usd(t.net_cents)+' / '+(reasons[t.outReason]||t.outReason)+'\n'+when(t.inAt)+' → '+when(t.outAt)+' / 仮想約定';el('history').append(div);}if(!a.history.length)el('history').textContent='決済履歴はまだありません';
- el('config').textContent=JSON.stringify({設定:a.policy,コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'未実装'},null,2);
- for(const id of ['start','pause','exit','json','csv','journal'])el(id).disabled=false;
+ el('config').textContent=JSON.stringify({設定:a.policy,コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'EXIT_PLUS5M_V1：保存済み気配のみ・正式損益と分離'},null,2);
+ for(const id of ['start','pause','exit','json','csv','journal','review'])el(id).disabled=false;
 }
 async function refresh(){show(await request('status'));}
 async function poll(){if(!paperConnected||paperBusy)return;paperBusy=true;try{await refresh();}catch(e){el('message').textContent=e.message;el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected)paperTimer=setTimeout(poll,60000);}}
 async function command(c){try{show(await request('command',{command:c,account_id:c==='exit'?el('account').value:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){el('message').textContent=e.message;}}
 async function download(format){try{let data=await request('export?format='+format);if(format==='journal'){const events=[...data.events];while(data.next_start!==null){data=await request('export?format=journal&start='+data.next_start);events.push(...data.events);}data={filename:'paper-journal.json',events};}const b=new Blob([format==='csv'?data.content:JSON.stringify(data,null,2)],{type:format==='csv'?'text/csv;charset=utf-8':'application/json'});const url=URL.createObjectURL(b),a=document.createElement('a');a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url);}catch(e){el('message').textContent=e.message;}}
 el('connect').addEventListener('click',async()=>{paperToken=el('token').value;el('token').value='';clearTimeout(paperTimer);paperConnected=false;try{await refresh();paperConnected=true;paperTimer=setTimeout(poll,60000);el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';}catch(e){el('message').textContent=e.message;}});
+async function reviewExits(){
+ try{const data=await request('exit-review');const target=el('exitReview');target.replaceChildren();
+ const note=document.createElement('p');note.textContent='EXIT_PLUS5M_V1 / 検証不足 / 読取 '+data.coverage.journal_events_read+'ログ / 対象外の古い決済 '+data.trades_omitted+'件'+(data.coverage.older_events_may_be_omitted?' / 古い観測は読取範囲外の可能性あり':'');target.append(note);
+ const names={WAITING:'観測時刻の到来待ち',MISSING_OBSERVATION:'観測不足',OUTSIDE_SESSION:'取引時間外',CONFIG_MISMATCH:'設定不一致',OBSERVED_RETROSPECTIVE:'事後試算（約定ではありません）'};
+ for(const row of data.rows){const p=document.createElement('p');p.textContent=row.account_id+' / '+row.trade_id+' / '+(names[row.status]||row.status)+' / 正式 '+usd(row.official_net_cents)+' / 5分後試算 '+usd(row.hypothetical_net_cents)+' / 差 '+usd(row.difference_cents)+' / 観測 '+when(row.observed_at);target.append(p);}
+ if(!data.rows.length){const p=document.createElement('p');p.textContent='比較対象の決済履歴はまだありません';target.append(p);}
+ }catch(e){el('exitReview').textContent=e.message;}
+}
+el('review').addEventListener('click',reviewExits);
 el('account').addEventListener('change',()=>{if(paperSnapshot)show(paperSnapshot);});
 for(const [id,c] of [['start','start'],['pause','pause'],['exit','exit']])el(id).addEventListener('click',()=>command(c));
 for(const id of ['json','csv','journal'])el(id).addEventListener('click',()=>download(id));
