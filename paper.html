@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#10182b"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://spy0dte-live-backend-v2.vercel.app; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'"><title>SPY V6.4 仮想売買検証</title><link rel="stylesheet" href="paper.css"><script defer src="paper.js"></script></head>
 <body><main><header><a href="./">← 既存の相場画面</a><p class="eyebrow">SPY 0DTE · V6.4 PAPER</p><h1>仮想売買の検証</h1><p>実相場で、買う・持つ・売る・見送るを記録。</p><div class="badges"><span>実注文 OFF</span><span id="news">ニュース監視 OFF／突発ニュース未確認</span></div></header>
-<section class="notice"><h2 id="runtime">稼働状況を確認中</h2><p id="runtimeDetail">自動運転の接続確認前です。</p><p>判定はサーバーの実行元が担当します。この画面は保存済み状態を読み込みます。無人運転の接続・30分継続検証は未完了です。</p><dl id="operations"></dl></section>
+<section class="notice"><h2 id="runtime">稼働状況を確認中</h2><p id="runtimeDetail">自動運転の接続確認前です。</p><p>判定はサーバーの実行元が担当します。この画面は保存済み状態を読み込みます。サーバーの継続実行・保存と、市場時間中の仮想売買は別々に確認します。</p><dl id="operations"></dl></section>
 <section id="auth"><label for="token">管理用認証トークン</label><input id="token" type="password" autocomplete="off" placeholder="安全に設定済みのトークン"><button id="connect">接続して履歴を読む</button><p class="muted">認証情報はこの画面のメモリにだけ保持し、URLや保存履歴に残しません。</p></section>
 <p id="message" role="status" aria-live="polite">認証後に残高と履歴を表示します。</p>
 <section class="controls"><button id="start" disabled>自動PAPERの開始設定</button><button id="pause" disabled>新規IN停止</button><button id="exit" disabled>仮想決済を要求</button><p class="muted">新規IN停止後もサーバー実行元が保有管理を継続します。実行元の接続が必要です。決済要求は次の有効な気配を待ちます。</p></section>
