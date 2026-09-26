@@ -2,7 +2,7 @@
 (()=>{
  'use strict';
  const categories={EMPLOYMENT:'雇用統計',CPI:'消費者物価',PPI:'生産者物価',GDP:'GDP',PCE:'個人消費',JOLTS:'求人',EMPLOYMENT_COST:'雇用コスト',PRODUCTIVITY:'生産性',IMPORT_EXPORT:'輸出入物価',FOMC_STATEMENT:'FOMC',FOMC_MINUTES:'FOMC議事録',FOMC_PRESS_CONFERENCE:'FRB会見',GEOPOLITICS:'地政学',SYSTEMIC_CRISIS:'金融危機',MARKET_CONTEXT:'市場関連',OTHER:'一般'};
- const names={BLS:'BLS直接',FRED_BLS:'米統計予定（セントルイス連銀）',BEA:'BEA予定',BEA_NEWS:'BEA発表',FED_NEWS:'FRB発表',FED_SPEECHES:'FRB講演',FED_TESTIMONY:'FRB証言',FED_SCHEDULE:'FRB予定',BBC_WORLD:'BBC世界',BBC_BUSINESS:'BBC経済',GUARDIAN_WORLD:'Guardian世界',GUARDIAN_BUSINESS:'Guardian経済',BLS_EMPLOYMENT:'BLS雇用',BLS_CPI:'BLS物価',BLS_PPI:'BLS生産者物価',BREAKING:'Marketaux（再発行待ち）'};
+ const names={BLS:'BLS直接',FRED_BLS:'米統計予定（セントルイス連銀）',NYFED_BLS:'米統計予定（ニューヨーク連銀）',BEA:'BEA予定',BEA_NEWS:'BEA発表',FED_NEWS:'FRB発表',FED_SPEECHES:'FRB講演',FED_TESTIMONY:'FRB証言',FED_SCHEDULE:'FRB予定',BBC_WORLD:'BBC世界',BBC_BUSINESS:'BBC経済',GUARDIAN_WORLD:'Guardian世界',GUARDIAN_BUSINESS:'Guardian経済',BLS_EMPLOYMENT:'BLS雇用',BLS_CPI:'BLS物価',BLS_PPI:'BLS生産者物価',BREAKING:'Marketaux（再発行待ち）'};
  const stamp=at=>{const d=new Date(at);return Number.isFinite(d.getTime())?d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})+' 日本時間':'未取得';};
  const text=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
  const el=(tag,value,cls)=>{const n=document.createElement(tag);if(value!==undefined)n.textContent=value;if(cls)n.className=cls;return n;};
@@ -46,13 +46,13 @@
    const upcoming=document.getElementById('newsUpcoming');upcoming.replaceChildren(el('strong','次の重要発表'));
    const schedule=(m?.upcoming||[]).slice(0,5);
    if(!schedule.length)upcoming.append(el('div','予定の取得待ち・14日以内の対象なし','small warn'));
-   for(const e of schedule){const item=el('div');item.style.margin='5px 0';item.append(el('div',stamp(e.at)+' · '+(categories[e.category]||e.category)));item.append(link(e.url,e.title));if(e.source==='FRED_BLS')item.append(el('span',' ［連銀経由］','small'));upcoming.append(item);}
+   for(const e of schedule){const item=el('div');item.style.margin='5px 0';item.append(el('div',stamp(e.at)+' · '+(categories[e.category]||e.category)));item.append(link(e.url,e.title));if(['FRED_BLS','NYFED_BLS'].includes(e.source))item.append(el('span',' ［連銀経由］','small'));upcoming.append(item);}
    const head=document.getElementById('newsHeadlines');head.replaceChildren();
    for(const e of (m?.headlines||[]).slice(0,12)){const item=el('div');item.style.margin='9px 0';item.append(el('div',stamp(e.published_at||e.at)+' · '+(names[e.source]||e.source)+' · '+(categories[e.category]||e.category),'small'));item.append(link(e.url,e.title));head.append(item);}
    if(!head.childElementCount)head.append(el('div','直近24時間の取得済み見出しなし（配信状態は下で確認）','small'));
    const sources=document.getElementById('newsSources');sources.replaceChildren();
    for(const [name,h] of Object.entries(m?.sources||{})){const line=el('div');line.style.margin='5px 0';line.append(el('span',(h.fresh?'● ':'△ ')+(names[name]||name)+'：'+(h.fresh?'取得済み':h.status==='NOT_CONFIGURED'?'未接続':'未取得・期限切れ'),h.fresh?'good':'warn'));line.append(el('div','最終成功 '+stamp(h.lastSuccessAt)+(h.errorCode?' / '+h.errorCode:''),'small'));sources.append(line);}
-   if(m?.scheduleSource==='FRED_BLS')sources.prepend(el('div','BLS直接取得の代わりに、セントルイス連銀の日程を使用しています。','small warn'));
+   if(['FRED_BLS','NYFED_BLS'].includes(m?.scheduleSource))sources.prepend(el('div','BLS直接取得の代わりに、'+(m.scheduleSource==='NYFED_BLS'?'ニューヨーク':'セントルイス')+'連銀の日程を使用しています。','small warn'));
  }
  function applyComparison(base,comparison,serverTime,elapsed=0){
    const result={...base,reasons:[...(base.reasons||[])]};
