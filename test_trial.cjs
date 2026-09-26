@@ -102,3 +102,17 @@ held();integrity.run("state.spy=669;state.open=668;state.vwapSlope=1;state.mom5=
 assert.equal(integrity.run('position.thesisBreakCount'),1,'one snapshot cannot count as two independent thesis breaks');
 integrity.run("state.spyPriceAt=new Date(Date.now()-50).toISOString();updatePositionFromState()");assert.equal(integrity.run('position.last.decision'),'THESIS EXIT');
 console.log('PASS: entry evidence/Delta gates; stale/null/mismatched/mock quotes cannot mark or close LIVE; repeated render cannot fabricate thesis confirmation.');
+
+// Costs are reference calculations, hidden when quotes expire; closure is not a data fault.
+const support=load(html);support.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture);
+support.run(`state.marketSession={open:true,calendarReady:true};state.decisionAnalysis={side:'PUT',priceSupport:4,volatilitySupport:1,efficiency20m:.2,costsStatus:'ASSUMPTION_NOT_EXPECTED_RETURN',costs:[{case:'STANDARD',entryDebitCents:7500,unchangedQuoteNetCents:-700,breakEvenBid:.77,feePerSideCents:100,slippagePerSide:.01}]};render(false)`);
+assert.match(support.els.get('analysisSupport').textContent,/価格 4\/4/);
+assert.match(support.els.get('analysisSupport').textContent,/20.0%/);
+assert.match(support.els.get('analysisCosts').textContent,/0.7700/);
+support.tick(2200);support.run('render(false)');assert.match(support.els.get('analysisCosts').textContent,/更新待ち/);
+support.run("state.marketSession.open=false;state.connection='CONNECTED';state.signal.decision='DATA ERROR';render(false)");
+assert.equal(support.run('evaluate(state).decision'),'NO TRADE');
+assert.match(support.els.get('decision').className,/warn/);
+assert.match(support.els.get('staleBanner').textContent,/市場時間外・購入判定休止/);
+support.run('state.ok=false');assert.equal(support.run('evaluate(state).decision'),'DATA ERROR');
+console.log('PASS: decision-support cost/overlap display, stale-cost hiding, market closure vs real connection failure.');

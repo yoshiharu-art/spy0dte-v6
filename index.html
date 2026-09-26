@@ -86,6 +86,11 @@
         <div class="small">契約情報をコピーし、公式SPYページを開きます。満期・CALL/PUT・Strikeを照合して注文してください。</div>
       </div>
       <details style="margin-top:10px"><summary class="small">判定の内訳を見る</summary><div id="reasons" class="reasons"></div></details>
+      <details style="margin-top:10px" open><summary class="small">購入コストと判断材料の偏り</summary>
+        <p id="analysisSupport" class="small">有効な相場データの取得後に表示します。</p>
+        <p id="analysisCosts" class="small" style="white-space:pre-line">費用回収価格：確認待ち</p>
+        <p class="small">価格の4条件は同じSPYの値動きを使います。独立した4つの証拠ではありません。費用・滑りは仮定で、損益ゼロの売却価格は予想価格や注文指値ではありません。</p>
+      </details>
     </div>
   </div>
 
@@ -414,11 +419,12 @@ function evaluate(s){
  const delta=finiteNumber(s.delta);
  if(decision.includes('BUY')&&(delta===null||!(s.side==='CALL'?delta>0&&delta<=1:delta<0&&delta>=-1))){decision='DATA ERROR';reason='Deltaの符号・範囲がCALL/PUTと一致しません';}
  if((decision.includes('BUY')||decision==='WATCH')&&entryLocked){decision='NO TRADE';reason=entryReason;}
+ if(closed&&s.ok===true&&s.connection==='CONNECTED'){decision='NO TRADE';reason='市場時間外：購入判定を休止しています';}
  const expired=reason==='データの有効期限切れ：再取得待ち';
  if(!closed&&!fresh&&s.ok===true){const details=rows.filter(r=>!r.fresh).map(r=>r.label).join(' / ');reason=(expired?'判定の有効期限切れ：更新待ち':reason)+' / '+details;}
  const conditions=directionChecks(s,sig?.side||s.side).map(([label,passed])=>({label,state:passed?'pass':'warn'}));
  const dataReasons=closed?[{label:'市場時間外：価格・時刻は前回の参考値です',state:'warn'}]:rows;
- return {...e,decision,side:sig?.side||s.side||'NONE',score:sig?.score||0,fresh,blocks:[reason],
+ return {...e,decision,marketClosed:closed&&s.ok===true&&s.connection==='CONNECTED',side:sig?.side||s.side||'NONE',score:sig?.score||0,fresh,blocks:[reason],
    reasons:[...conditions,...dataReasons,{label:reason,state:decision.includes('BUY')?'pass':decision==='WATCH'||closed?'warn':'fail'}]};
 }
 function contractText(s=state){
@@ -436,6 +442,17 @@ function openWebull(){
 }
 function prettyReason(text){return String(text).replace(/spyPriceAt/g,'SPY価格').replace(/spyQuoteAt/g,'SPY気配').replace(/optionQuoteAt/g,'オプション気配').replace(/barAt/g,'1分足').replace(/NEWS UNKNOWN/g,'ニュース未確認');}
 function localTime(value){const t=Date.parse(value);return Number.isFinite(t)?new Date(t).toLocaleString('ja-JP',{hour12:false}) : '未取得';}
+function renderDecisionAnalysis(){
+ const a=state.decisionAnalysis;
+ const contextFresh=!state._mock&&a&&sourceFresh(state,'spyPriceAt',2)&&sourceFresh(state,'barAt',90)&&state.barsValid===true;
+ const price=contextFresh?finiteNumber(a.priceSupport):null;
+ const vol=contextFresh&&sourceFresh(state,'volPriceAt',60)?finiteNumber(a.volatilitySupport):null;
+ const efficiency=contextFresh?finiteNumber(a.efficiency20m):null;
+ document.getElementById('analysisSupport').textContent=price===null?'判断材料：更新待ち（有効な当日データが必要です）':
+  `${a.side||'--'}への一致：価格 ${price}/4、ボラティリティ ${vol===null?'未確認':vol+'/1'}。20分の一方向への進み具合：${efficiency===null?'観測不足':(efficiency*100).toFixed(1)+'%（低い値は往復・横ばい）'}。`;
+ const ready=!state._mock&&a?.costsStatus==='ASSUMPTION_NOT_EXPECTED_RETURN'&&sourceFresh(state,'optionQuoteAt',2)&&state.marketSession?.open===true;
+ document.getElementById('analysisCosts').textContent=ready?a.costs.map(c=>`${c.case==='STRESS'?'不利な費用条件':'通常の費用条件'}・1枚：購入総額 ${money(c.entryDebitCents/100)} / 同じ気配で売却した試算 ${money(c.unchangedQuoteNetCents/100)} / 損益ゼロに必要な売却Bid $${Number(c.breakEvenBid).toFixed(4)}（片道費用 ${money(c.feePerSideCents/100)}・滑り $${Number(c.slippagePerSide).toFixed(2)}）`).join('\n'):'費用回収価格：有効な気配の更新待ち';
+}
 
 function loadPosition(){try{return JSON.parse(localStorage.getItem(POSITION_KEY)||'null')}catch(e){return null}}
 function persistPosition(){if(position)localStorage.setItem(POSITION_KEY,JSON.stringify(position));else localStorage.removeItem(POSITION_KEY)}
@@ -511,11 +528,11 @@ function render(updatePosition=true){
  document.getElementById('spyAge').textContent=state._mock?'模擬データ':Number.isFinite(dataAge(state,'spyPriceAt'))?'取得データ '+dataAge(state,'spyPriceAt').toFixed(1)+'秒前':'データ時刻不明';
  const volAge=dataAge(state,'volPriceAt');
  document.getElementById('vixAge').textContent=state._mock?'模擬データ':Number.isFinite(volAge)&&volAge>=0?'最終約定 '+volAge.toFixed(1)+'秒前':'最終約定時刻 未取得・不正';
- const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.decision==='取得中'||e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
+ const d=document.getElementById('decision');d.textContent=e.decision;d.className='sig-big '+(e.decision.includes('BUY')?'good':e.marketClosed||e.decision==='取得中'||e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'warn':'bad');
  document.getElementById('score').textContent=e.score;
  document.getElementById('candidate').textContent=e.side==='NONE'?'方向未確定':`SPY ${state.expiration||'--'} ${state.strike??'--'} ${state.side||e.side}`;
  document.getElementById('priceFlag').textContent=e.decision.includes('BUY')?'価格条件 ○':'価格条件 △';
- const card=document.getElementById('signalCard');card.className='card signal '+(e.decision.includes('BUY')?'buy':e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'watch':'no');
+ const card=document.getElementById('signalCard');card.className='card signal '+(e.decision.includes('BUY')?'buy':e.marketClosed||e.decision.includes('WATCH')||e.decision.includes('LOTTERY')?'watch':'no');
  document.getElementById('reasons').innerHTML=e.reasons.map(r=>`<div class="reason ${r.state}">${r.state==='pass'?'○':r.state==='warn'?'△':'×'} ${escapeHTML(prettyReason(r.label))}</div>`).join('');
  document.getElementById('expiration').textContent=state.expiration||'--';
  document.getElementById('bidask').textContent=money(state.bid)+' / '+money(state.ask);
@@ -530,7 +547,7 @@ function render(updatePosition=true){
  wb.disabled=!canBuy;wb.className='action '+(canBuy?'buy':'lock');wb.textContent='Webullで確認';
  document.getElementById('buyContract').classList.toggle('hidden',!canBuy);
  document.getElementById('buyContractText').textContent=contractText();
- const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh?'':' stale');banner.textContent=(state._mock?'模擬データ / PAPER':'Webull実データ')+' · '+e.decision;
+ const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh||e.marketClosed?'':' stale');banner.textContent=(state._mock?'模擬データ / PAPER':'Webull実データ')+' · '+(e.marketClosed?'市場時間外・購入判定休止':e.decision);
  document.getElementById('connectionStatus').textContent='Webull：'+(state._mock?'模擬モード':state.connection==='CONNECTED'?'接続済み'+(state.timeBand==='CLOSED'?'（市場時間外・参考表示）':e.fresh?'（判定用データ更新済み）':'（判定用データの更新待ち）'):'未接続・再取得待ち');
  if(state._loading===true){
    document.getElementById('connectionStatus').textContent='Webull：接続・初回データを確認中';
@@ -545,6 +562,7 @@ function render(updatePosition=true){
  document.getElementById('paperReadiness').textContent=state._mock?'模擬データ：自動仮想売買とは別':state.ok!==true?'仮想売買のデータ条件：確認待ち':paperBlocks.length?'自動仮想売買は待機：'+paperBlocks.join(' / '):'リアルタイム・停止状態の確認済み。口座の開始状態・売買条件は検証画面で確認';
  document.getElementById('decisionReason').textContent=state.timeBand==='CLOSED'?'市場時間外のため購入を停止しています。表示価格は参考値です。':e.blocks.map(prettyReason).join(' / ');
  document.getElementById('decisionTime').textContent='判定時刻：'+localTime(state.signal?.decisionAt);
+ renderDecisionAnalysis();
  document.getElementById('optionSymbol').textContent=state.optionSymbol||'--';
  document.getElementById('optionLastPrice').textContent=money(state.optionLastPrice)+' · '+localTime(state.optionLastTradeAt);
  document.getElementById('spyBidAsk').textContent=money(state.spyBid)+' / '+money(state.spyAsk);
