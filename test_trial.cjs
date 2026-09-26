@@ -8,7 +8,9 @@ function load(html){
  setInterval:()=>0,clearInterval(){},setTimeout:()=>0,clearTimeout(){},navigator:{clipboard:{writeText:async()=>{}}},
  window:{open:(...a)=>opens.push(a)},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
  document:{getElementById(id){if(!els.has(id))els.set(id,{textContent:'',innerHTML:'',disabled:false,classList:{add(){},remove(){},toggle(){}}});return els.get(id)}}});
- vm.runInContext(script,ctx);return {ctx,opens,els,tick:n=>{clock+=n},run:s=>vm.runInContext(s,ctx)};
+ vm.runInContext(script,ctx);
+ if(html.includes('src="./news-ui.js"')){vm.runInContext(fs.readFileSync('news-ui.js','utf8'),ctx);ctx.window.NewsUI.render=()=>{};}
+ return {ctx,opens,els,tick:n=>{clock+=n},run:s=>vm.runInContext(s,ctx)};
 }
 const x=load(html),old=load(cp.execFileSync('git',['show','d7e26db8d861073e838ea87847c49baf260de0a6:index.html'],{encoding:'utf8'}));
 // Preserve strategy formulas. Position input-validation fixes have behavioral tests below.
@@ -35,12 +37,21 @@ x.run(`state={...scenarios.buy,ok:true,dataMode:'LIVE',provider:'Webull OpenAPI'
  barAt:new Date(Date.now()-60000).toISOString(),volPriceAt:new Date(Date.now()-20000).toISOString(),
  _receivedAt:Date.now(),_receivedMono:performance.now(),_roundTripMs:100,optionSymbol:'SPY260924P00667000',expiration:'2026-09-24',
  signal:{decision:'PUT BUY',side:'PUT',score:100,reasons:['unit fixture'],decisionAt:new Date(Date.now()).toISOString(),validUntil:new Date(Date.now()+1900).toISOString()}};`);
+assert.equal(x.run('evaluate(state).decision'),'NO TRADE','missing news comparison fails closed');
+// Synthetic complete permission isolates the existing price/cutoff tests. The public RSS backend never emits this BUY.
+x.run("state.newsComparison={baseDecision:'PUT BUY',decision:'PUT BUY',reasons:['synthetic complete test permission'],validUntil:state.signal.validUntil}");
 assert.equal(x.run('evaluate(state).decision'),'PUT BUY');
 x.run('render(false)');assert.equal(x.els.get('webullBtn').disabled,false);
 assert.equal(x.run('openWebull()'),true);assert.equal(x.opens.length,1);
 assert.equal(x.opens[0][0],'https://www.webull.co.jp/ticker/nysearca-spy');
 assert.match(x.run('contractText()'),/2026-09-24/);assert.match(x.run('contractText()'),/PUT/);
 const validBuyFixture=x.run('JSON.stringify(state)');
+for(const change of ["state.newsComparison=null","state.newsComparison.decision='WATCH'","state.newsComparison.decision='NO TRADE'","state.newsComparison.decision='CALL BUY'","state.newsComparison.validUntil=state.serverTime"]){
+ const news=load(html);news.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture);news.run(change);
+ assert(!news.run('evaluate(state).decision').includes('BUY'),change);assert.equal(news.run('openWebull()'),false,change);
+}
+const missingModule=load(html);missingModule.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture+";window.NewsUI=null");
+assert.equal(missingModule.run('evaluate(state).decision'),'NO TRADE','missing module fails closed');
 // Even an old server's BUY/30-minute deadline cannot bypass the 60-minute rule.
 const cutoff=load(html);cutoff.run("runtimeConfig={newsMode:'OFF'};state="+x.run('JSON.stringify(state)'));
 for(const [minutes,expected] of [[61,'PUT BUY'],[60,'NO TRADE'],[59,'NO TRADE']]){
