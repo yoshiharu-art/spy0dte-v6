@@ -39,6 +39,17 @@ x.run('render(false)');assert.equal(x.els.get('webullBtn').disabled,false);
 assert.equal(x.run('openWebull()'),true);assert.equal(x.opens.length,1);
 assert.equal(x.opens[0][0],'https://www.webull.co.jp/ticker/nysearca-spy');
 assert.match(x.run('contractText()'),/2026-09-24/);assert.match(x.run('contractText()'),/PUT/);
+// Even an old server's BUY/30-minute deadline cannot bypass the 60-minute rule.
+const cutoff=load(html);cutoff.run("runtimeConfig={newsMode:'OFF'};state="+x.run('JSON.stringify(state)'));
+for(const [minutes,expected] of [[61,'PUT BUY'],[60,'NO TRADE'],[59,'NO TRADE']]){
+ cutoff.run('state.minutesToClose='+minutes);
+ assert.equal(cutoff.run('evaluate(state).decision'),expected);
+ if(minutes<=60){assert.equal(cutoff.run('openWebull()'),false);cutoff.run('render(false)');assert.equal(cutoff.els.get('webullBtn').disabled,true);}
+}
+cutoff.run("state.minutesToClose=60.01;state.marketSession={closesAt:new Date(Date.now()+3600600).toISOString(),entryEndsAt:new Date(Date.now()+1800600).toISOString()}");
+assert.equal(cutoff.run('evaluate(state).decision'),'PUT BUY');
+cutoff.tick(600);assert.equal(cutoff.run('evaluate(state).decision'),'NO TRADE','fresh BUY expires at the cutoff between polls');
+cutoff.run("state.minutesToClose=null;state.marketSession={}");assert.equal(cutoff.run('evaluate(state).decision'),'NO TRADE','unknown deadline fails closed');
 x.tick(2000);
 assert.equal(x.run('evaluate(state).decision'),'NO TRADE');
 assert.equal(x.run('openWebull()'),false);assert.equal(x.opens.length,1);
