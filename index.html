@@ -74,6 +74,7 @@
         <div>
           <div class="label" style="text-align:right">DIRECTION SCORE</div>
           <div id="score" class="score">--</div>
+          <div class="small">条件の一致度です。勝率・利益確率ではありません。</div>
           <div id="priceFlag" class="small" style="text-align:right">価格条件 ○</div>
         </div>
       </div>
@@ -153,7 +154,7 @@
         </div>
       </div>
 
-      <div id="quoteMismatch" class="banner warn hidden" style="margin-top:10px">固定した契約と現在候補が違います。この価格はPOSITION損益には使いません。</div>
+      <div id="quoteMismatch" class="banner warn hidden" style="margin-top:10px">保有契約の有効な気配を確認できません。損益判定・仮想決済記録は更新待ちです。Webull側で確認できます。</div>
 
       <div class="grid4" style="margin-top:10px">
         <div><div class="label">PEAK / MFE</div><div id="positionMfe" class="value purple">--</div></div>
@@ -255,7 +256,7 @@ let position=loadPosition();
 
 function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function money(x){return x!=null&&x!==''&&Number.isFinite(Number(x))?'$'+Number(x).toFixed(2):'--'}
-function pct(x,d=1){return Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+Number(x).toFixed(d)+'%':'--'}
+function pct(x,d=1){return x!=null&&x!==''&&Number.isFinite(Number(x))?(Number(x)>=0?'+':'')+Number(x).toFixed(d)+'%':'--'}
 function deltaRange(band){if(band==='EARLY')return [0.25,0.40];if(band==='MID')return [0.30,0.45];if(band==='LATE')return [0.35,0.50];return null}
 function directionChecks(s,side){
  const hasVol=Number.isFinite(Number(s.vixChange)),volName=s.volLabel||'VOL';
@@ -409,6 +410,9 @@ function evaluate(s){
  }
  const rows=freshnessRows(s),fresh=rows.every(r=>r.fresh),closed=s.marketSession?.open===false&&s.marketSession?.calendarReady===true;
  if(decision.includes('BUY')&&!fresh){decision='NO TRADE';reason='購入用データの更新待ち';}
+ if(decision.includes('BUY')&&(s.realtimeVerified!==true||s.marketHalted!==false||!s.instrumentId||!s.multiplierSource||!(finiteNumber(s.contractMultiplier)>0)||!(finiteNumber(s.askSize)>=1))){decision='NO TRADE';reason='購入条件の確認待ち：リアルタイム資格・取引可能状態・契約情報・気配数量';}
+ const delta=finiteNumber(s.delta);
+ if(decision.includes('BUY')&&(delta===null||!(s.side==='CALL'?delta>0&&delta<=1:delta<0&&delta>=-1))){decision='DATA ERROR';reason='Deltaの符号・範囲がCALL/PUTと一致しません';}
  if((decision.includes('BUY')||decision==='WATCH')&&entryLocked){decision='NO TRADE';reason=entryReason;}
  const expired=reason==='データの有効期限切れ：再取得待ち';
  if(!closed&&!fresh&&s.ok===true){const details=rows.filter(r=>!r.fresh).map(r=>r.label).join(' / ');reason=(expired?'判定の有効期限切れ：更新待ち':reason)+' / '+details;}
@@ -441,15 +445,23 @@ function positionCore(s,side){
  return [['SPY/VWAP',s.spy<s.vwap],['VWAP slope',s.vwapSlope<0],['Momentum',s.mom5<-0.10]];
 }
 function profitFloor(peakPnl){if(peakPnl<100)return null;return peakPnl-Math.max(60,peakPnl*0.40)}
+function finiteNumber(value){return value==null||value===''||typeof value==='boolean'||!Number.isFinite(Number(value))?null:Number(value)}
+function sourceFresh(s,field,limit){const age=dataAge(s,field);return Number.isFinite(age)&&age>=0&&age<=limit}
+function positionQuoteValid(q,s){
+ const bid=finiteNumber(q?.bid),ask=finiteNumber(q?.ask);
+ if(bid===null||ask===null||bid<0||ask<=0||bid>ask)return false;
+ if(s._mock===true)return position?.dataMode==='MOCK';
+ return s.ok===true&&s.dataMode==='LIVE'&&s.provider==='Webull OpenAPI'&&s.environment==='prod'&&q.realtimeVerified===true&&q.marketHalted===false&&sourceFresh({...s,...q},'optionQuoteAt',2);
+}
 function updatePositionFromState(){
  if(!position||!position.active)return null;
  const pq=state.positionQuote||null;
  let matched=false,liveBid=null;
- if(position.optionSymbol&&pq&&String(pq.optionSymbol)===String(position.optionSymbol)&&Number.isFinite(Number(pq.bid))){
+ if(position.optionSymbol&&pq&&String(pq.optionSymbol)===String(position.optionSymbol)&&positionQuoteValid(pq,state)){
    matched=true;liveBid=Number(pq.bid);
- }else if(position.optionSymbol&&String(state.optionSymbol||'')===String(position.optionSymbol)&&Number.isFinite(Number(state.bid))){
+ }else if(position.optionSymbol&&String(state.optionSymbol||'')===String(position.optionSymbol)&&positionQuoteValid(state,state)){
    matched=true;liveBid=Number(state.bid);
- }else if(!position.optionSymbol&&sameContract(state,position)&&Number.isFinite(Number(state.bid))){
+ }else if(!position.optionSymbol&&sameContract(state,position)&&positionQuoteValid(state,state)){
    matched=true;liveBid=Number(state.bid);
  }
  if(matched&&Number.isFinite(liveBid)){
@@ -459,20 +471,23 @@ function updatePositionFromState(){
    position.updatedAt=Date.now();
  }
  const entry=Number(position.entryAsk),current=Number(position.currentBid);
- const pnl=(current-entry)/entry*100;
+ const pnl=matched?(current-entry)/entry*100:null;
  const peakPnl=(Number(position.peakBid)-entry)/entry*100;
  const mae=(Number(position.lowBid)-entry)/entry*100;
- const thesis=sideScore(state,position.side);
+ const thesisReady=(state._mock===true&&position.dataMode==='MOCK')||(state.ok===true&&state.barsValid===true&&['spy','vwap','vwapSlope','mom5','open'].every(k=>finiteNumber(state[k])!==null)&&sourceFresh(state,'spyPriceAt',2)&&sourceFresh(state,'barAt',90)&&(state.volRequired===false&&state.vixChange==null||finiteNumber(state.vixChange)!==null&&sourceFresh(state,'volPriceAt',60)));
+ const thesis=thesisReady?sideScore(state,position.side):null;
  const core=positionCore(state,position.side);
  const corePass=core.filter(x=>x[1]).length;
  const thesisBroken=thesis<=40&&corePass<=1;
- position.thesisBreakCount=thesisBroken?(Number(position.thesisBreakCount||0)+1):0;
+ const observation=state._mock===true?JSON.stringify([state.spy,state.vwap,state.mom5,state.vwapSlope,state.vixChange]):state.spyPriceAt+'|'+state.barAt;
+ if(thesisReady&&observation!==position.lastThesisObservation){position.thesisBreakCount=thesisBroken?(Number(position.thesisBreakCount||0)+1):0;position.lastThesisObservation=observation;}
  const floor=profitFloor(peakPnl);
- const minutesToClose=Number(state.minutesToClose);
+ const minutesToClose=finiteNumber(state.minutesToClose);
  let decision='HOLD',exitReason=null,level='hold';
- if(Number.isFinite(minutesToClose)&&minutesToClose<=15){decision='FORCE EXIT';exitReason='FORCE_EXIT';level='exit'}
+ if(minutesToClose!==null&&minutesToClose<=15){decision='FORCE EXIT';exitReason='FORCE_EXIT';level='exit'}
+ else if(!matched){decision='QUOTE WAIT';level='risk'}
  else if(pnl<=-65){decision='HARD STOP';exitReason='HARD_STOP';level='exit'}
- else if(position.thesisBreakCount>=2){decision='THESIS EXIT';exitReason='THESIS_BREAK';level='exit'}
+ else if(thesisReady&&position.thesisBreakCount>=2){decision='THESIS EXIT';exitReason='THESIS_BREAK';level='exit'}
  else if(floor!==null&&pnl<=floor){decision='PROFIT TRAIL EXIT';exitReason='PROFIT_TRAIL';level='exit'}
  else if(pnl<=-50){decision='DANGER';level='risk'}
  else if(pnl<=-30){decision='RISK WATCH';level='risk'}
@@ -551,10 +566,10 @@ function renderPosition(){
  const dec=document.getElementById('positionDecision');
  dec.className='sig-big '+(p.level==='exit'?'bad':p.level==='risk'?'warn':p.level==='runner'?'purple':'good');
  const pnl=document.getElementById('positionPnl');pnl.textContent=pct(p.pnl);pnl.className='bigvalue '+(p.pnl>=0?'good':'bad');
- document.getElementById('positionPrice').textContent=`Entry ${money(position.entryAsk)} / Bid ${money(position.currentBid)}`;
+ document.getElementById('positionPrice').textContent=`Entry ${money(position.entryAsk)} / Bid ${p.matched?money(position.currentBid):'更新待ち（前回 '+money(position.currentBid)+'）'}`;
  document.getElementById('positionMfe').textContent=pct(p.peakPnl);
  document.getElementById('positionMae').textContent=pct(p.mae);
- document.getElementById('thesisScore').textContent=String(p.thesis);
+ document.getElementById('thesisScore').textContent=p.thesis===null?'確認待ち':String(p.thesis);
  document.getElementById('profitFloor').textContent=p.floor===null?'OFF':pct(p.floor);
  document.getElementById('quoteMismatch').classList.toggle('hidden',p.matched);
  const core=positionCore(state,position.side);
@@ -581,14 +596,15 @@ async function copyTicket(){const t=ticketMode==='EXIT'?exitTicketText():entryTi
 function getLogs(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch(e){return[]}}
 function saveLog(x){const n=getNewsRisk(state);x={...x,newsLevel:n.level,newsEvent:n.title,newsPhase:n.phase,newsSource:n.source,newsCategory:n.category??null,newsAge:n.ageMinutes??null,newsRelevance:n.relevance??null,newsEventId:n.eventId??null,newsAvailability:n.availability??'AVAILABLE'};const a=getLogs();a.unshift({ts:Date.now(),...x,dataMode:document.getElementById('modeBadge').textContent==='MOCK / PAPER'?'MOCK / PAPER':'PAPER',newsSnapshot:window.newsSnapshot?{newsRisk:window.newsSnapshot.newsRisk,sources:window.newsSnapshot.sources}:null,policyVersion:'6.4-initial-20260924'});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
 function recordPaperEntry(){
- const e=evaluate(state);if(!e.decision.includes('BUY'))return;
- position={active:true,entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,optionSymbol:state.optionSymbol||null,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
+ const e=evaluate(state);if(position?.active||!e.decision.includes('BUY'))return;
+ position={active:true,dataMode:state._mock?'MOCK':'LIVE',entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,optionSymbol:state.optionSymbol||null,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
  persistPosition();updatePositionFromState();
  saveLog({type:'ENTRY',decision:e.decision,side:e.side,strike:state.strike,bid:state.bid,ask:state.ask,score:e.score,band:e.band,spreadPct:e.spreadPct,spreadAbs:e.spreadAbs,optionAge:state.optionAge,delta:state.delta,gamma:state.gamma,iv:state.iv,volume:state.volume,oi:state.oi,spy:state.spy,vwap:state.vwap,mom5:state.mom5,newsLevel:e.news.level,newsEvent:e.news.title,newsPhase:e.news.phase});
  closeTicket();render();
 }
 function exitPosition(reason){
  if(!position)return;const p=updatePositionFromState()||position.last;const holdSec=Math.max(0,Math.round((Date.now()-position.entryTs)/1000));
+ if(!p.matched){renderPosition();return;}
  saveLog({type:'EXIT',reason:reason||p.exitReason||'MANUAL_EXIT',side:position.side,strike:position.strike,entry:position.entryAsk,exitBid:position.currentBid,pnl:p.pnl,mfe:p.peakPnl,mae:p.mae,holdSec,thesis:p.thesis,decision:p.decision});
  position=null;persistPosition();closeTicket();render();
 }
