@@ -289,8 +289,7 @@ function getNewsRisk(s,now=Date.now()){
  return {level:'MEDIUM',availability:'UNAVAILABLE',title:'newsRisk source unavailable',phase:'NORMAL',lock:true,watch:false,source:'ENGINE'};
 }
 async function refreshNews(){
- if(runtimeConfig?.newsMode!=='ON')return;
- try {const r=await fetch(new URL('api/news',API_URL),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('news');window.newsSnapshot=await r.json();}
+ try {const r=await fetch(new URL('api/news_monitor',API_URL),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('news');window.newsSnapshot=await r.json();}
  catch(e){window.newsSnapshot=null;}
  render(false);
 }
@@ -301,6 +300,7 @@ function newsCountdown(n){
   return 'T+'+m+'m';
 }
 function renderNewsRisk(n){
+  if(window.NewsUI){window.NewsUI.render(window.newsSnapshot?.monitor,state.newsComparison);return;}
   n=n||getNewsRisk(state);
   if(n.availability==='OFF'){
     document.getElementById('newsCard').className='card news-card medium';
@@ -412,6 +412,10 @@ function evaluate(s){
      else if(s.side!==sig.side||!['CALL','PUT'].includes(sig.side)){decision='DATA ERROR';reason='判定方向と契約が一致しません';}
    }
    if(!['CALL BUY','PUT BUY','WATCH','NO TRADE','DATA ERROR'].includes(decision)){decision='DATA ERROR';reason='未対応の判定応答';}
+ }
+ if(decision.includes('BUY')||decision==='WATCH'){
+   const guarded=window.NewsUI?window.NewsUI.applyComparison({decision,reasons:[reason]},s.newsComparison,s.serverTime,elapsedSeconds(s)):{decision:'NO TRADE',reasons:['ニュース表示・判定の読み込み待ち']};
+   decision=guarded.decision;reason=guarded.reasons.join(' / ');
  }
  const rows=freshnessRows(s),fresh=rows.every(r=>r.fresh),closed=s.marketSession?.open===false&&s.marketSession?.calendarReady===true;
  if(decision.includes('BUY')&&!fresh){decision='NO TRADE';reason='購入用データの更新待ち';}
@@ -553,8 +557,8 @@ function render(updatePosition=true){
    document.getElementById('connectionStatus').textContent='Webull：接続・初回データを確認中';
    document.getElementById('modeBadge').textContent='初回データ取得中';
  }
- document.getElementById('newsModeStatus').textContent=runtimeConfig?'ニュース監視'+runtimeConfig.newsMode:'ニュース監視：設定確認中';
- document.getElementById('newsWarning').textContent=runtimeConfig?.newsMode==='ON'?'ニュース監視ON：取得状態はNEWS RISK欄':'突発ニュース未確認';
+ document.getElementById('newsModeStatus').textContent='ニュース自動監視・購入前フィルター';
+ document.getElementById('newsWarning').textContent='自動仮想売買は従来条件を維持。ニュース考慮判定を比較記録します。';
  document.getElementById('lastUpdate').textContent='最終データ更新：'+localTime(state.fetchedAt);
  const paperBlocks=[];
  if(state.realtimeVerified!==true)paperBlocks.push('リアルタイム資格未確認');
@@ -612,7 +616,7 @@ function openExitTicket(){if(!position)return;ticketMode='EXIT';document.getElem
 function closeTicket(){document.getElementById('modal').classList.remove('on')}
 async function copyTicket(){const t=ticketMode==='EXIT'?exitTicketText():entryTicketText();try{await navigator.clipboard.writeText(t);alert('注文票をコピーしました')}catch(e){alert(t)}}
 function getLogs(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'[]')}catch(e){return[]}}
-function saveLog(x){const n=getNewsRisk(state);x={...x,newsLevel:n.level,newsEvent:n.title,newsPhase:n.phase,newsSource:n.source,newsCategory:n.category??null,newsAge:n.ageMinutes??null,newsRelevance:n.relevance??null,newsEventId:n.eventId??null,newsAvailability:n.availability??'AVAILABLE'};const a=getLogs();a.unshift({ts:Date.now(),...x,dataMode:document.getElementById('modeBadge').textContent==='MOCK / PAPER'?'MOCK / PAPER':'PAPER',newsSnapshot:window.newsSnapshot?{newsRisk:window.newsSnapshot.newsRisk,sources:window.newsSnapshot.sources}:null,policyVersion:'6.4-initial-20260924'});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
+function saveLog(x){const n=window.newsSnapshot?.monitor?.guard||getNewsRisk(state);x={...x,newsLevel:n.level,newsEvent:n.title,newsPhase:n.phase,newsSource:n.source,newsCategory:n.category??null,newsAge:n.ageMinutes??null,newsRelevance:n.relevance??null,newsEventId:n.eventId??null,newsAvailability:n.availability??'AVAILABLE'};const a=getLogs();a.unshift({ts:Date.now(),...x,dataMode:document.getElementById('modeBadge').textContent==='MOCK / PAPER'?'MOCK / PAPER':'PAPER',newsComparison:state.newsComparison||null,newsSnapshot:window.newsSnapshot?{newsRisk:window.newsSnapshot.newsRisk,monitorGuard:window.newsSnapshot.monitor?.guard,sources:window.newsSnapshot.sources}:null,policyVersion:'6.4-news-monitor-20260927'});localStorage.setItem(LOG_KEY,JSON.stringify(a.slice(0,200)));renderLogs()}
 function recordPaperEntry(){
  const e=evaluate(state);if(position?.active||!e.decision.includes('BUY'))return;
  position={active:true,dataMode:state._mock?'MOCK':'LIVE',entryTs:Date.now(),updatedAt:Date.now(),expiration:state.expiration||'TODAY',side:e.side,strike:state.strike,optionSymbol:state.optionSymbol||null,entryAsk:Number(state.ask),currentBid:Number(state.bid),peakBid:Number(state.bid),lowBid:Number(state.bid),entryScore:e.score,thesisBreakCount:0,last:null};
@@ -694,13 +698,14 @@ async function startApp(){
  try{const r=await fetch(new URL('api/config',API_URL),{cache:'no-store',signal:AbortSignal.timeout(10000)});const c=await r.json();
    if(r.ok&&['ON','OFF'].includes(c.newsMode)&&c.autoTrade===false)runtimeConfig=c;
  }catch(e){}
+ refreshNews();
  await tryLive();
- if(runtimeConfig?.newsMode==='ON')refreshNews();
 }
 render();renderLogs();startApp();setInterval(refreshNews,60000);setInterval(()=>render(false),250);
 window.addEventListener('offline',()=>{state={};render(false)});
 window.addEventListener('pageshow',event=>{if(event.persisted){state={};render(false);tryLive();}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}))}
 </script>
+<script src="./news-ui.js"></script>
 </body>
 </html>
