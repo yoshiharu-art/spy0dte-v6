@@ -11,8 +11,8 @@ function load(html){
  vm.runInContext(script,ctx);return {ctx,opens,els,tick:n=>{clock+=n},run:s=>vm.runInContext(s,ctx)};
 }
 const x=load(html),old=load(cp.execFileSync('git',['show','d7e26db8d861073e838ea87847c49baf260de0a6:index.html'],{encoding:'utf8'}));
-// Preserve all direction and position functions verbatim. The existing evaluator is retained as evaluateBase.
-for(const n of ['directionChecks','deltaRange','sideScore','positionCore','profitFloor','updatePositionFromState','exitPosition','confirmPaperExit','manualPaperExit'])assert.equal(x.ctx[n].toString(),old.ctx[n].toString(),n);
+// Preserve strategy formulas. Position input-validation fixes have behavioral tests below.
+for(const n of ['directionChecks','deltaRange','sideScore','positionCore','profitFloor','confirmPaperExit','manualPaperExit'])assert.equal(x.ctx[n].toString(),old.ctx[n].toString(),n);
 assert.equal(x.ctx.evaluateBase.toString().replace('function evaluateBase','function evaluate').replace("||news.availability==='OFF'",''),old.ctx.evaluate.toString());
 assert.equal(x.run('state.spy'),undefined,'startup must not show a demo price');
 assert.equal(x.run('evaluate(state).decision'),'取得中');
@@ -29,6 +29,7 @@ x.run("state={...structuredClone(scenarios.buy),_mock:true};");
 assert.equal(x.run('evaluate(state).decision'),'PUT BUY');
 assert.equal(x.run('openWebull()'),false,'simulation cannot open a purchase link');
 x.run(`state={...scenarios.buy,ok:true,dataMode:'LIVE',provider:'Webull OpenAPI',environment:'prod',newsMode:'OFF',
+ realtimeVerified:true,marketHalted:false,instrumentId:'SYNTHETIC',contractMultiplier:100,multiplierSource:'SYNTHETIC',askSize:10,barsValid:true,
  serverTime:new Date(Date.now()).toISOString(),fetchedAt:new Date(Date.now()).toISOString(),
  spyPriceAt:new Date(Date.now()-100).toISOString(),spyQuoteAt:new Date(Date.now()-100).toISOString(),optionQuoteAt:new Date(Date.now()-100).toISOString(),
  barAt:new Date(Date.now()-60000).toISOString(),volPriceAt:new Date(Date.now()-20000).toISOString(),
@@ -39,6 +40,7 @@ x.run('render(false)');assert.equal(x.els.get('webullBtn').disabled,false);
 assert.equal(x.run('openWebull()'),true);assert.equal(x.opens.length,1);
 assert.equal(x.opens[0][0],'https://www.webull.co.jp/ticker/nysearca-spy');
 assert.match(x.run('contractText()'),/2026-09-24/);assert.match(x.run('contractText()'),/PUT/);
+const validBuyFixture=x.run('JSON.stringify(state)');
 // Even an old server's BUY/30-minute deadline cannot bypass the 60-minute rule.
 const cutoff=load(html);cutoff.run("runtimeConfig={newsMode:'OFF'};state="+x.run('JSON.stringify(state)'));
 for(const [minutes,expected] of [[61,'PUT BUY'],[60,'NO TRADE'],[59,'NO TRADE']]){
@@ -63,7 +65,7 @@ assert(!html.slice(0,html.indexOf('<script>')).includes('>PUT BUY<'));
 console.log('PASS: preserved V6.4 core/position functions; live/off/on, no dummy startup, stale expiry, Webull contract/link, mock isolation.');
 
 // Live diagnostics use each source timestamp, not the aggregate/receipt age.
-x.run("runtimeConfig={newsMode:'OFF'};state={...state,newsMode:'OFF',_receivedAt:Date.now(),_receivedMono:performance.now(),serverTime:new Date(Date.now()).toISOString(),volPriceAt:new Date(Date.now()-230000).toISOString(),age:0.1};render(false)");
+x.run("runtimeConfig={newsMode:'OFF'};state={...state,newsMode:'OFF',realtimeVerified:false,marketHalted:null,_receivedAt:Date.now(),_receivedMono:performance.now(),serverTime:new Date(Date.now()).toISOString(),volPriceAt:new Date(Date.now()-230000).toISOString(),age:0.1};render(false)");
 assert.match(x.els.get('vixAge').textContent,/230/);
 assert.equal(x.els.get('vixAge').textContent,'最終約定 230.1秒前');
 assert.match(x.run("evaluate(state).blocks.join(' / ')"),/VIXY最終約定：230/);
@@ -77,3 +79,26 @@ x.run("state={...state,marketSession:{open:true,calendarReady:true},timeBand:'MI
 assert.equal(x.run('evaluate(state).decision'),'NO TRADE','bad live timestamps cannot be overridden by BUY');
 assert.equal(x.run('openWebull()'),false);
 console.log('PASS: per-source freshness, expired BUY blocks, closed-market reference display, PAPER prerequisites, no stale legacy quote labels.');
+
+// Published BUY cannot bypass verified trading evidence or signed Delta.
+const integrity=load(html);
+const reset=()=>integrity.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture+";position=null");
+for(const change of ['realtimeVerified=false','marketHalted=null','marketHalted=true','askSize=0','contractMultiplier=null','delta=.34']){
+ reset();integrity.run('state.'+change);assert(!integrity.run('evaluate(state).decision').includes('BUY'),change);
+ assert.equal(integrity.run('openWebull()'),false,change);
+}
+function held(){reset();integrity.run("position={active:true,dataMode:'LIVE',optionSymbol:state.optionSymbol,side:'PUT',strike:667,expiration:state.expiration,entryTs:Date.now(),entryAsk:1,currentBid:.7,peakBid:.7,lowBid:.7,thesisBreakCount:0};");}
+for(const bad of ['null','undefined','NaN','-1']){
+ held();integrity.run('state.bid='+bad);const p=integrity.run('updatePositionFromState()');
+ assert.equal(p.matched,false);assert.equal(p.decision,'QUOTE WAIT');assert.equal(p.pnl,null);
+ assert.equal(integrity.run('position.currentBid'),.7,'missing Bid is never a zero-price observation');
+ integrity.run('exitPosition()');assert.equal(integrity.run('position.active'),true,'cannot record a fill at an invalid price');
+}
+held();integrity.run("state.optionQuoteAt=new Date(Date.now()-3000).toISOString()");assert.equal(integrity.run('updatePositionFromState().matched'),false);
+held();integrity.run("state._mock=true;state.bid=99;state.ask=99.1");assert.equal(integrity.run('updatePositionFromState().matched'),false,'mock scenario cannot mark a live position');
+held();integrity.run("state.bid=.2;state.ask=.22;state.minutesToClose=null");assert.equal(integrity.run('updatePositionFromState().decision'),'HARD STOP','null remaining time is not zero minutes');
+held();integrity.run("state.bid=0;state.ask=.02");assert.equal(integrity.run('updatePositionFromState().decision'),'HARD STOP','an observed valid zero bid is different from missing data');
+held();integrity.run("state.spy=669;state.open=668;state.vwapSlope=1;state.mom5=.2;state.vixChange=-.2;updatePositionFromState();updatePositionFromState();updatePositionFromState()");
+assert.equal(integrity.run('position.thesisBreakCount'),1,'one snapshot cannot count as two independent thesis breaks');
+integrity.run("state.spyPriceAt=new Date(Date.now()-50).toISOString();updatePositionFromState()");assert.equal(integrity.run('position.last.decision'),'THESIS EXIT');
+console.log('PASS: entry evidence/Delta gates; stale/null/mismatched/mock quotes cannot mark or close LIVE; repeated render cannot fabricate thesis confirmation.');
