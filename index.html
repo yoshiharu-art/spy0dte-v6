@@ -59,7 +59,7 @@
     <div class="card"><div class="label">SPY</div><div id="spy" class="value">--</div><div id="spyAge" class="small">● --</div></div>
     <div class="card"><div id="volLabel" class="label">VIXY proxy</div><div id="vix" class="value">--</div><div id="vixAge" class="small">● --</div></div>
     <div class="card"><div class="label">VWAP差</div><div id="vwapDev" class="value">--</div><div id="vwapSlope" class="small">VWAP slope ↓</div></div>
-    <div class="card"><div class="label">ET BAND</div><div id="band" class="value">--</div><div id="minutesToClose" class="small">残り --分</div></div>
+    <div class="card"><div class="label">ET BAND</div><div id="band" class="value">--</div><div id="minutesToClose" class="small">残り --分</div><div class="small">新規購入は終了60分前まで。締切後も保有の売却判断は継続。</div></div>
   </div>
 
   <div class="sec">
@@ -378,9 +378,19 @@ function freshnessRows(s){
    return {field,fresh,label:label+'：'+status,state:fresh?'pass':'fail'};
  });
 }
+function entryTimeRemaining(s){
+ const elapsed=s._mock===true?0:elapsedSeconds(s),limits=[];
+ const server=Date.parse(s.serverTime),close=Date.parse(s.marketSession?.closesAt),end=Date.parse(s.marketSession?.entryEndsAt);
+ if(Number.isFinite(server)&&Number.isFinite(close))limits.push((close-server)/1000-3600);
+ if(s.minutesToClose!=null&&Number.isFinite(Number(s.minutesToClose)))limits.push(Number(s.minutesToClose)*60-3600);
+ if(Number.isFinite(server)&&Number.isFinite(end))limits.push((end-server)/1000);
+ return limits.length?Math.min(...limits)-elapsed:null;
+}
 function evaluate(s){
  const e=evaluateBase(s);
- if(s._mock===true)return e;
+ const entryRemaining=entryTimeRemaining(s),entryLocked=entryRemaining===null||entryRemaining<=0;
+ const entryReason=entryRemaining===null?'購入締切の時刻を確認できません':'新規購入締切：終了まで残り60分以下（保有の売却判断は継続）';
+ if(s._mock===true)return entryLocked?{...e,decision:'NO TRADE',blocks:[entryReason]}:e;
  if(s._loading===true&&s.ok!==true){
    const reason='Webull実データを取得中です';
    return {...e,decision:'取得中',side:'NONE',score:0,fresh:false,blocks:[reason],reasons:[{label:reason,state:'warn'}]};
@@ -399,6 +409,7 @@ function evaluate(s){
  }
  const rows=freshnessRows(s),fresh=rows.every(r=>r.fresh),closed=s.marketSession?.open===false&&s.marketSession?.calendarReady===true;
  if(decision.includes('BUY')&&!fresh){decision='NO TRADE';reason='購入用データの更新待ち';}
+ if((decision.includes('BUY')||decision==='WATCH')&&entryLocked){decision='NO TRADE';reason=entryReason;}
  const expired=reason==='データの有効期限切れ：再取得待ち';
  if(!closed&&!fresh&&s.ok===true){const details=rows.filter(r=>!r.fresh).map(r=>r.label).join(' / ');reason=(expired?'判定の有効期限切れ：更新待ち':reason)+' / '+details;}
  const conditions=directionChecks(s,sig?.side||s.side).map(([label,passed])=>({label,state:passed?'pass':'warn'}));
