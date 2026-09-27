@@ -4,6 +4,7 @@
 <section class="notice"><h2 id="runtime">稼働状況を確認中</h2><p id="runtimeDetail">自動運転の接続確認前です。</p><p>判定はサーバーの実行元が担当します。この画面は保存済み状態を読み込みます。サーバーの継続実行・保存と、市場時間中の仮想売買は別々に確認します。</p><dl id="operations"></dl></section>
 <section id="auth"><label for="token">管理用認証トークン</label><input id="token" type="password" autocomplete="off" placeholder="安全に設定済みのトークン"><button id="connect">接続して履歴を読む</button><p class="muted">認証情報はこの画面のメモリにだけ保持し、URLや保存履歴に残しません。</p></section>
 <p id="message" role="status" aria-live="polite">認証後に残高と履歴を表示します。</p>
+<section class="card"><h2>Webull口座の接続診断</h2><p>口座一覧・残高・保有・未約定注文の読み取り接続を確認します。注文は送信せず、売買権限の確認とは区別します。</p><button id="tradePreflight" disabled>口座接続を診断</button><p id="tradePreflightStatus" role="status" aria-live="polite">管理用認証後に実行できます。</p><pre id="tradePreflightResult"></pre></section>
 <p id="entryWindow">新規購入は通常取引終了の60分前で停止。締切後も保有分の売却判断を継続します。</p>
 <section class="controls"><button id="start" disabled>自動PAPERの開始設定</button><button id="pause" disabled>新規IN停止</button><button id="exit" disabled>仮想決済を要求</button><p class="muted">新規IN停止後もサーバー実行元が保有管理を継続します。実行元の接続が必要です。決済要求は次の有効な気配を待ちます。</p></section>
 <section><label for="account">比較する仮想口座</label><select id="account" aria-label="仮想口座"><option value="V64_BASELINE_1:STANDARD">基準版 · 通常条件</option><option value="V64_TIME_1:STANDARD">時間考慮版 · 通常条件</option><option value="V64_BASELINE_1:STRESS">基準版 · 不利な条件</option><option value="V64_TIME_1:STRESS">時間考慮版 · 不利な条件</option></select><p class="muted">各口座は独立した資金で比較。開始・新規停止は全4口座に適用します。</p></section>
