@@ -8,6 +8,7 @@ const when=s=>s?new Date(s).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',hour12
 const duration=s=>s==null?'未確認':Math.max(0,s/60).toFixed(1)+'分';
 let paperDiagnostics=null;
 let tradePreflightBusy=false;
+let tradeAccountChoices=[];
 const statusNames={FLAT:'見送り',IN_PENDING:'仮想IN待ち',OPEN:'保有継続',OUT_PENDING:'決済待ち',CLOSED:'決済済み'};
 const reasons={OUTSIDE_MARKET_HOURS:'市場時間外のため取得・新規購入を休止',TIME_ENTRY_LOCK:'新規購入の時間外（保有管理は継続）',MARKET_CALENDAR_UNAVAILABLE:'取引カレンダーの確認待ち',ENTRY_STOPPED:'新規IN停止中',LOSS_LIMIT:'損失上限に到達',REALTIME_UNVERIFIED:'リアルタイム権限・遅延を確認できません',HALT_STATUS_UNVERIFIED:'市場停止状態を確認できません',CONTRACT_METADATA_MISSING:'契約ID・倍率が未取得',STALE_QUOTE:'気配が古いため待機',STALE_RECEIPT:'受信データが古いため待機',OUTSIDE_FILL_WINDOW:'市場時間外',DATA_MODE_MISMATCH:'有効な実相場データがありません',DATA_UNAVAILABLE:'相場データ未取得',FIXED_CONTRACT_MISMATCH:'保有契約と気配が一致しません',ASK_SIZE_MISSING_OR_EMPTY:'売り板数量が未取得または不足',BID_SIZE_MISSING_OR_EMPTY:'買い板数量が未取得または不足',CAPITAL_LIMIT:'仮想資金の購入上限超過',FORCE_EXIT:'強制終了時刻',HARD_STOP:'損失率上限',THESIS_BREAK:'売買根拠の崩れ',PROFIT_TRAIL:'RUNNER利益保護',OPPOSITE_SIGNAL:'反対方向シグナル',NO_PROGRESS:'伸びず勢いも低下',TIME_DECAY:'保有時間・勢い・利益条件',NO_VALID_FILL_BEFORE_CLOSE:'取引終了まで決済できず未解決',MANUAL_EXIT:'利用者の仮想決済要求',TIME_SCORE_OR_SPREAD:'残り時間に対するスコア・スプレッド条件未達',SIGNAL_ACCEPTED:'購入候補を受付。新しい気配を待っています',NOT_STARTED:'仮想売買は未開始'};
 async function request(path,body){
@@ -103,18 +104,43 @@ function showDecisionAnalysis(a){
 async function runTradePreflight(){
  if(!paperConnected||!paperToken||tradePreflightBusy)return;
  const button=el('tradePreflight'),status=el('tradePreflightStatus'),result=el('tradePreflightResult'),token=paperToken;
+ const selectedType=el('tradeAccountType').value;
+ if(tradeAccountChoices.length>1&&!selectedType){status.textContent='確認する口座を上の欄から選んでください。';return;}
  tradePreflightBusy=true;button.disabled=true;status.textContent='Webull口座の読み取り接続を診断中…';result.textContent='';
+ el('tradeAccountType').disabled=true;
  try{
-  const response=await fetch(PAPER_API+'trade-preflight',{method:'GET',cache:'no-store',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(55000)});
+  const suffix=selectedType?'?account_type='+encodeURIComponent(selectedType):'';
+  const response=await fetch(PAPER_API+'trade-preflight'+suffix,{method:'GET',cache:'no-store',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(55000)});
   if(token!==paperToken||!paperConnected)return;
-  if(!response.ok){status.textContent=response.status===401?'管理用認証が切れています。再接続してください。':'診断を取得できませんでした（HTTP '+response.status+'）。';return;}
+  if(!response.ok){
+   let errorCode='';try{errorCode=(await response.json())?.error;}catch{}
+   if(token!==paperToken||!paperConnected)return;
+   status.textContent=response.status===401?'管理用認証が切れています。再接続してください。':errorCode==='TRADE_PREFLIGHT_COOLDOWN'?'診断の間隔を空ける必要があります。前回の診断から60秒たってから、もう一度押してください。':'診断を取得できませんでした（HTTP '+response.status+'）。';return;
+  }
   const data=await response.json();
   if(token!==paperToken||!paperConnected)return;
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('INVALID_DIAGNOSTIC');
   result.textContent=JSON.stringify(data,null,2);
-  status.textContent='診断結果を受信しました。各項目の成否は以下の結果を確認してください。実注文の可否は未確認です。';
+  showTradeAccountChoices(data.accountChoices,selectedType);
+  const blockers=Array.isArray(data.blockers)?data.blockers:[];
+  if(blockers.includes('ACCOUNT_SELECTION_REQUIRED'))status.textContent='口座一覧への接続に成功しました。上の欄で確認する口座を選び、もう一度「口座接続を診断」を押してください。';
+  else if(blockers.includes('ACCOUNT_SELECTION_AMBIGUOUS'))status.textContent='同じ種類の口座が複数あるため、特定できません。口座を確認してから設定が必要です。';
+  else if(blockers.includes('ACCOUNT_TYPE_NOT_FOUND')||blockers.includes('CONFIGURED_ACCOUNT_TYPE_MISMATCH'))status.textContent='選んだ種類と確認できる口座が一致しません。口座の選択を確認してください。';
+  else if(data.balancePositionsOrdersValidated===true)status.textContent='選択した口座の残高・保有・未約定注文の読み取り確認に成功しました。実注文の可否は未確認です。';
+  else status.textContent='診断結果を受信しました。一部の確認が完了していません。「診断の詳細」で理由を確認できます。実注文の可否は未確認です。';
  }catch{
   if(token===paperToken&&paperConnected)status.textContent='診断結果を取得できませんでした。通信状態を確認し、必要なら再実行してください。';
- }finally{tradePreflightBusy=false;button.disabled=!paperConnected;}
+ }finally{tradePreflightBusy=false;button.disabled=!paperConnected;el('tradeAccountType').disabled=!paperConnected||!tradeAccountChoices.length;}
 }
 el('tradePreflight').addEventListener('click',runTradePreflight);
+
+function showTradeAccountChoices(rows,selectedType=''){
+ const select=el('tradeAccountType');select.replaceChildren();
+ tradeAccountChoices=Array.isArray(rows)?rows.filter(r=>r&&/^[A-Z_]{1,32}$/.test(r.accountType)&&Number.isInteger(r.count)&&r.count>0&&r.count<=20):[];
+ const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=tradeAccountChoices.length?'確認する口座を選んでください':'診断を押すと口座の種類を取得します';select.append(placeholder);
+ const labels={CASH:'現物口座（CASH）',MARGIN:'信用口座（MARGIN）'};
+ for(const row of tradeAccountChoices){const option=document.createElement('option');option.value=row.accountType;option.textContent=(labels[row.accountType]||row.accountType)+' / '+row.count+'口座'+(row.count>1?'（同種の口座が複数あるため選択できません）':'');option.disabled=row.count!==1;select.append(option);}
+ if(tradeAccountChoices.some(r=>r.accountType===selectedType&&r.count===1))select.value=selectedType;
+ select.disabled=!paperConnected||tradePreflightBusy||!tradeAccountChoices.length;
+}
+el('connect').addEventListener('click',()=>showTradeAccountChoices([]));
