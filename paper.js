@@ -7,6 +7,7 @@ const percent=n=>n==null?'--':(100*n).toFixed(1)+'%';
 const when=s=>s?new Date(s).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',hour12:false})+' JST':'未取得';
 const duration=s=>s==null?'未確認':Math.max(0,s/60).toFixed(1)+'分';
 let paperDiagnostics=null;
+let tradePreflightBusy=false;
 const statusNames={FLAT:'見送り',IN_PENDING:'仮想IN待ち',OPEN:'保有継続',OUT_PENDING:'決済待ち',CLOSED:'決済済み'};
 const reasons={OUTSIDE_MARKET_HOURS:'市場時間外のため取得・新規購入を休止',TIME_ENTRY_LOCK:'新規購入の時間外（保有管理は継続）',MARKET_CALENDAR_UNAVAILABLE:'取引カレンダーの確認待ち',ENTRY_STOPPED:'新規IN停止中',LOSS_LIMIT:'損失上限に到達',REALTIME_UNVERIFIED:'リアルタイム権限・遅延を確認できません',HALT_STATUS_UNVERIFIED:'市場停止状態を確認できません',CONTRACT_METADATA_MISSING:'契約ID・倍率が未取得',STALE_QUOTE:'気配が古いため待機',STALE_RECEIPT:'受信データが古いため待機',OUTSIDE_FILL_WINDOW:'市場時間外',DATA_MODE_MISMATCH:'有効な実相場データがありません',DATA_UNAVAILABLE:'相場データ未取得',FIXED_CONTRACT_MISMATCH:'保有契約と気配が一致しません',ASK_SIZE_MISSING_OR_EMPTY:'売り板数量が未取得または不足',BID_SIZE_MISSING_OR_EMPTY:'買い板数量が未取得または不足',CAPITAL_LIMIT:'仮想資金の購入上限超過',FORCE_EXIT:'強制終了時刻',HARD_STOP:'損失率上限',THESIS_BREAK:'売買根拠の崩れ',PROFIT_TRAIL:'RUNNER利益保護',OPPOSITE_SIGNAL:'反対方向シグナル',NO_PROGRESS:'伸びず勢いも低下',TIME_DECAY:'保有時間・勢い・利益条件',NO_VALID_FILL_BEFORE_CLOSE:'取引終了まで決済できず未解決',MANUAL_EXIT:'利用者の仮想決済要求',TIME_SCORE_OR_SPREAD:'残り時間に対するスコア・スプレッド条件未達',SIGNAL_ACCEPTED:'購入候補を受付。新しい気配を待っています',NOT_STARTED:'仮想売買は未開始'};
 async function request(path,body){
@@ -48,12 +49,13 @@ function show(s){
  el('config').textContent=JSON.stringify({現在の新規購入制限:s.entry_constraints,記録開始時の固定戦略設定:a.policy,設定注記:'新規購入は固定戦略より厳しい60分前の制限を適用。過去の設定・残高・履歴は保持。',コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'EXIT_PLUS5M_V1：保存済み気配のみ・正式損益と分離'},null,2);
  showDiagnostics();
  for(const id of ['start','pause','exit','json','csv','journal','review','diagnose'])el(id).disabled=false;
+ el('tradePreflight').disabled=tradePreflightBusy;
 }
 async function refresh(){show(await request('status'));}
 async function poll(){if(!paperConnected||paperBusy)return;paperBusy=true;try{await refresh();}catch(e){el('message').textContent=e.message;el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected)paperTimer=setTimeout(poll,60000);}}
 async function command(c){try{show(await request('command',{command:c,account_id:c==='exit'?el('account').value:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){el('message').textContent=e.message;}}
 async function download(format){try{let data=await request('export?format='+format);if(format==='journal'){const events=[...data.events];while(data.next_start!==null){data=await request('export?format=journal&start='+data.next_start);events.push(...data.events);}data={filename:'paper-journal.json',events};}const b=new Blob([format==='csv'?data.content:JSON.stringify(data,null,2)],{type:format==='csv'?'text/csv;charset=utf-8':'application/json'});const url=URL.createObjectURL(b),a=document.createElement('a');a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url);}catch(e){el('message').textContent=e.message;}}
-el('connect').addEventListener('click',async()=>{paperToken=el('token').value;el('token').value='';clearTimeout(paperTimer);paperConnected=false;try{await refresh();paperConnected=true;paperTimer=setTimeout(poll,60000);el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';}catch(e){el('message').textContent=e.message;}});
+el('connect').addEventListener('click',async()=>{paperToken=el('token').value;el('token').value='';clearTimeout(paperTimer);paperConnected=false;el('tradePreflight').disabled=true;el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証を確認中…';try{await refresh();paperConnected=true;paperTimer=setTimeout(poll,60000);el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';el('tradePreflightStatus').textContent='接続診断を実行できます。';}catch(e){el('message').textContent=e.message;el('tradePreflightStatus').textContent='管理用認証後に実行できます。';}});
 async function reviewExits(){
  try{const data=await request('exit-review');const target=el('exitReview');target.replaceChildren();
  const note=document.createElement('p');note.textContent='EXIT_PLUS5M_V1 / 検証不足 / 読取 '+data.coverage.journal_events_read+'ログ / 対象外の古い決済 '+data.trades_omitted+'件'+(data.coverage.older_events_may_be_omitted?' / 古い観測は読取範囲外の可能性あり':'');target.append(note);
@@ -97,3 +99,22 @@ function showDecisionAnalysis(a){
  if(!a.costs?.length){row('費用回収価格：この判定時点では有効な気配なし');return;}
  for(const c of a.costs)row((c.case==='STRESS'?'不利な費用条件':'通常の費用条件')+'・1枚：購入総額 '+usd(c.entryDebitCents)+' / 同じ気配で売却 '+usd(c.unchangedQuoteNetCents)+' / 損益ゼロに必要な売却Bid $'+Number(c.breakEvenBid).toFixed(4)+' / 片道費用 '+usd(c.feePerSideCents)+'・滑り $'+Number(c.slippagePerSide).toFixed(2));
 }
+
+async function runTradePreflight(){
+ if(!paperConnected||!paperToken||tradePreflightBusy)return;
+ const button=el('tradePreflight'),status=el('tradePreflightStatus'),result=el('tradePreflightResult'),token=paperToken;
+ tradePreflightBusy=true;button.disabled=true;status.textContent='Webull口座の読み取り接続を診断中…';result.textContent='';
+ try{
+  const response=await fetch(PAPER_API+'trade-preflight',{method:'GET',cache:'no-store',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(55000)});
+  if(token!==paperToken||!paperConnected)return;
+  if(!response.ok){status.textContent=response.status===401?'管理用認証が切れています。再接続してください。':'診断を取得できませんでした（HTTP '+response.status+'）。';return;}
+  const data=await response.json();
+  if(token!==paperToken||!paperConnected)return;
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('INVALID_DIAGNOSTIC');
+  result.textContent=JSON.stringify(data,null,2);
+  status.textContent='診断結果を受信しました。各項目の成否は以下の結果を確認してください。実注文の可否は未確認です。';
+ }catch{
+  if(token===paperToken&&paperConnected)status.textContent='診断結果を取得できませんでした。通信状態を確認し、必要なら再実行してください。';
+ }finally{tradePreflightBusy=false;button.disabled=!paperConnected;}
+}
+el('tradePreflight').addEventListener('click',runTradePreflight);
