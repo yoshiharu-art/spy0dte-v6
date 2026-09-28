@@ -1,0 +1,17 @@
+const fs=require('fs'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
+const dom=new JSDOM(fs.readFileSync('paper.html','utf8'),{url:'https://example.test',runScripts:'outside-only'});
+const w=dom.window;
+w.AbortSignal={timeout:()=>undefined};w.setTimeout=()=>1;
+w.fetch=async()=>({ok:true,status:200,json:async()=>({release:'test',adminConfigured:true})});
+w.eval(fs.readFileSync('paper.js','utf8')+'\nwindow.renderIndicator=showIndicatorAnalysis;');
+const history={comparisonReadiness:'SYSTEM_NOT_READY',targetSession:'2026-09-29',completedHistoricalSessions:4,requiredSamples:5,minimumSlotSamples:4,requiredMissingDates:['2026-09-28'],previousDay:{date:'2026-09-28'},recovery:{status:'RETRY_WAIT',lastError:'<img src=x onerror=alert(1)>',errorKind:'CONFIGURATION',nextAttemptAt:'2026-09-28T21:15:00Z'}};
+w.renderIndicator({decisionClass:'SYSTEM_NOT_READY',observedAt:'2026-09-28T21:00:00Z',features:{breakoutRvol:{samples:null,requiredSamples:5}},reasons:['PREVIOUS_SESSION_LEVELS_UNAVAILABLE']},history);
+let text=w.document.getElementById('indicatorAnalysis').textContent;
+assert.match(text,/SYSTEM NOT READY/);assert.match(text,/4日 \/ 必要 5日/);assert.match(text,/不足営業日：2026-09-28/);
+assert.match(text,/次回試行/);assert.match(text,/接続・設定の確認/);assert.match(text,/比較履歴 未確認/);
+assert.equal(w.document.querySelector('#indicatorAnalysis img'),null);
+history.comparisonReadiness='READY';history.completedHistoricalSessions=5;history.previousDay={date:'2026-09-28',high:769.54,low:763.715};history.recovery={};
+w.renderIndicator({decisionClass:'NO_TRADE',features:{breakoutRvol:{samples:5,value:1.23,slotET:'10:30'}}},history);
+text=w.document.getElementById('indicatorAnalysis').textContent;
+assert.match(text,/NO TRADE：データ正常/);assert.match(text,/769.540/);assert.match(text,/763.715/);assert.match(text,/1.230倍/);assert.match(text,/同一5分枠/);
+console.log('PASS: readiness/counts/missing days/retry/high-low/RVOL/NO TRADE separation and escaped text');
