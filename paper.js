@@ -56,7 +56,34 @@ function show(s){
 async function refresh(){show(await request('status'));}
 async function poll(){if(!paperConnected||paperBusy)return;paperBusy=true;try{await refresh();}catch(e){el('message').textContent=e.message;el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected)paperTimer=setTimeout(poll,60000);}}
 async function command(c){try{show(await request('command',{command:c,account_id:c==='exit'?el('account').value:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){el('message').textContent=e.message;}}
-async function download(format){try{let data=await request('export?format='+format);if(format==='journal'){const events=[...data.events];while(data.next_start!==null){data=await request('export?format=journal&start='+data.next_start);events.push(...data.events);}data={filename:'paper-journal.json',events};}const b=new Blob([format==='csv'?data.content:JSON.stringify(data,null,2)],{type:format==='csv'?'text/csv;charset=utf-8':'application/json'});const url=URL.createObjectURL(b),a=document.createElement('a');a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url);}catch(e){el('message').textContent=e.message;}}
+async function journalDownload(){
+  const raw=[];let start=0,end=null;
+  while(true){
+    const data=await request('export?format=journal&raw=1&start='+start+(end===null?'':'&end='+end));
+    if(!Array.isArray(data.raw_events)||!Number.isSafeInteger(data.snapshot_end)||data.snapshot_end<start||
+       (end!==null&&data.snapshot_end!==end))throw new Error('判定ログの完全性を確認できません。バックエンドの更新を確認してください。');
+    end=data.snapshot_end;
+    const stop=start+data.raw_events.length;
+    if(data.raw_events.some(x=>typeof x!=='string')||stop>end||
+       (data.next_start===null?stop!==end:!Number.isSafeInteger(data.next_start)||data.next_start!==stop||stop<=start||stop>=end)){
+      throw new Error('判定ログのページが欠損しています。再取得してください。');
+    }
+    // Keep server-stored numeric literals: JSON.parse/stringify breaks event hashes.
+    raw.push(...data.raw_events);
+    if(data.next_start===null)break;
+    start=data.next_start;
+  }
+  return {filename:'paper-journal.json',content:'{"filename":"paper-journal.json","snapshot_end":'+end+',"events":['+raw.join(',')+']}'};
+}
+async function download(format){
+  try{
+    const data=format==='journal'?await journalDownload():await request('export?format='+format);
+    const content=format==='csv'||format==='journal'?data.content:JSON.stringify(data,null,2);
+    const b=new Blob([content],{type:format==='csv'?'text/csv;charset=utf-8':'application/json'});
+    const url=URL.createObjectURL(b),a=document.createElement('a');
+    a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url);
+  }catch(e){el('message').textContent=e.message;}
+}
 el('connect').addEventListener('click',async()=>{paperToken=el('token').value;el('token').value='';clearTimeout(paperTimer);paperConnected=false;el('tradePreflight').disabled=true;el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証を確認中…';try{await refresh();paperConnected=true;paperTimer=setTimeout(poll,60000);el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';el('tradePreflightStatus').textContent='接続診断を実行できます。';}catch(e){el('message').textContent=e.message;el('tradePreflightStatus').textContent='管理用認証後に実行できます。';}});
 async function reviewExits(){
  try{const data=await request('exit-review');const target=el('exitReview');target.replaceChildren();
