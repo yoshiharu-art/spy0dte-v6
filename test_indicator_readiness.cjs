@@ -15,3 +15,17 @@ w.renderIndicator({decisionClass:'NO_TRADE',features:{breakoutRvol:{samples:5,va
 text=w.document.getElementById('indicatorAnalysis').textContent;
 assert.match(text,/NO TRADE：データ正常/);assert.match(text,/769.540/);assert.match(text,/763.715/);assert.match(text,/1.230倍/);assert.match(text,/同一5分枠/);
 console.log('PASS: readiness/counts/missing days/retry/high-low/RVOL/NO TRADE separation and escaped text');
+history.missingDates=[];history.requiredMissingDates=[];
+history.recovery={lastSuccessAt:'2026-09-28T22:40:50Z',nextAttemptAt:'2026-09-28T22:41:50Z',status:'DAY_SAVED'};
+const stale={observedAt:'2026-09-28T20:59:00Z',decisionClass:'SYSTEM_NOT_READY',features:{breakoutRvol:{value:null}},reasons:['NO_CLOSED_BARS']};
+w.renderIndicator(stale,history);
+const panel=w.document.getElementById('indicatorAnalysis'),details=panel.querySelector('details');
+assert.ok(details);assert.equal(details.open,false);assert.match(details.textContent,/NO_CLOSED_BARS/);
+assert.match(panel.textContent,/履歴の準備は完了/);assert.match(panel.textContent,/補充完了/);assert.match(panel.textContent,/不要（履歴充足）/);
+assert.equal(stale.features.breakoutRvol.value,null);
+for(const sample of [{...stale,observedAt:'2026-09-28T22:50:00Z'}, {...stale,observedAt:'invalid'}]){
+ w.renderIndicator(sample,history);assert.equal(panel.querySelector('details'),null);
+}
+history.comparisonReadiness='SYSTEM_NOT_READY';history.missingDates=['2026-09-25'];
+w.renderIndicator(stale,history);assert.equal(panel.querySelector('details'),null);assert.doesNotMatch(panel.textContent,/補充完了|不要（履歴充足）/);
+console.log('PASS: repaired history and old decisions separated; current failures stay visible');

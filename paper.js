@@ -203,19 +203,31 @@ function reasonText(value){
 }
 function showIndicatorAnalysis(a,history){
  const target=el('indicatorAnalysis');target.replaceChildren();
- const row=text=>{const p=document.createElement('p');p.textContent=text;target.append(p);};
+ let rowsTarget=target;
+ const row=text=>{const p=document.createElement('p');p.textContent=text;rowsTarget.append(p);};
  const num=n=>n==null?'未取得':Number(n).toFixed(3);
  if(history){
   const recovery=history.recovery||{},prev=history.previousDay||{};
+  const complete=history.comparisonReadiness==='READY'&&Array.isArray(history.missingDates)&&history.missingDates.length===0;
   row('保存履歴の最新状態：'+(history.comparisonReadiness==='READY'?'利用可能':'SYSTEM NOT READY')+' / 対象営業日 '+(history.targetSession||'未確認'));
   row('RVOL比較用の完全な営業日 '+(history.completedHistoricalSessions??'未確認')+'日 / 必要 '+(history.requiredSamples??5)+'日 / 最も少ない時間帯 '+(history.minimumSlotSamples??'未確認')+'日');
-  row('不足営業日：'+((history.requiredMissingDates||[]).join(', ')||'なし')+' / 補充状態 '+(recovery.status||'未実行'));
+  row('不足営業日：'+((history.requiredMissingDates||[]).join(', ')||'なし')+' / 補充状態 '+(complete?'補充完了':(recovery.status||'未実行')));
   row('前営業日 '+(prev.date||'未確認')+' / 高値 '+num(prev.high)+' / 安値 '+num(prev.low));
-  row('履歴取得の最終成功 '+when(recovery.lastSuccessAt)+' / 次回試行 '+when(recovery.nextAttemptAt));
+  row('履歴取得の最終成功 '+when(recovery.lastSuccessAt)+' / 次回試行 '+(complete?'不要（履歴充足）':when(recovery.nextAttemptAt)));
   if(recovery.lastError)row('取得失敗：'+recovery.lastError+' / '+(recovery.errorKind==='CONFIGURATION'?'接続・設定の確認が必要':'一時障害または取得データ不足'));
  }
  if(!a){row('選択中の口座には追加版の判定記録がありません。口座欄に追加インジ版があれば選択してください。');return;}
  const f=a.features||{},r=f.breakoutRvol||{};
+ // Keep the historical decision intact. Only collapse a missing-data record
+ // that provably predates successful repair; never hide a newer data error.
+ if(history?.comparisonReadiness==='READY'&&
+    Date.parse(a.observedAt)<Date.parse(history.recovery?.lastSuccessAt)&&
+    (r.value==null||f.previousDay?.status!=='READY')){
+  row('履歴の準備は完了しました。補完後の自動判定結果を待っています。');
+  const details=document.createElement('details'),summary=document.createElement('summary');
+  summary.textContent='補完前の判定記録（'+when(a.observedAt)+'）';
+  details.append(summary);target.append(details);rowsTarget=details;
+ }
  if(a.decisionClass)row('追加インジの判定区分：'+(({SYSTEM_NOT_READY:'SYSTEM NOT READY：データ準備不足',DATA_ERROR:'DATA ERROR：計算・入力エラー',NO_TRADE:'NO TRADE：データ正常・相場条件未達',SIGNAL_READY:'追加条件を充足'})[a.decisionClass]||a.decisionClass));
  row('判定時点 '+when(a.observedAt)+' / '+(a.status==='PASS'?'追加条件を充足（約定とは別）':(a.reasons||[]).map(reasonText).join(' / ')));
  row('確定5分足 '+(f.closed5mCount??0)+'本 / 最終足の確定 '+when(f.barCloseAt));
