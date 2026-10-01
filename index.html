@@ -548,6 +548,12 @@ function render(updatePosition=true){
  document.getElementById('buyContractText').textContent=contractText();
  const banner=document.getElementById('staleBanner');banner.className='banner'+(e.fresh||e.marketClosed?'':' stale');banner.textContent=(state._mock?'模擬データ / PAPER':'Webull実データ')+' · '+(e.marketClosed?'市場時間外・購入判定休止':e.decision);
  document.getElementById('connectionStatus').textContent='Webull：'+(state._mock?'模擬モード':state.connection==='CONNECTED'?'接続済み'+(state.timeBand==='CLOSED'?'（市場時間外・参考表示）':e.fresh?'（判定用データ更新済み）':'（判定用データの更新待ち）'):'未接続・再取得待ち');
+ if(state.ok===true&&!state._mock){
+   const liveStatus=document.getElementById('liveStatus'),waiting=freshnessRows(state).filter(row=>!row.fresh);
+   const readiness=e.marketClosed?'市場時間外・購入判定休止':waiting.length?'購入用データの更新待ち：'+waiting.map(row=>row.label).join(' / '):'鮮度条件内 / 購入判定：'+e.decision;
+   liveStatus.textContent='Webull応答取得済み / '+readiness+(state.limitations?.length?' / '+state.limitations.join(' / '):'');
+   liveStatus.className='small '+(e.decision.includes('BUY')?'good':'warn');
+ }
  if(state._loading===true){
    document.getElementById('connectionStatus').textContent='Webull：接続・初回データを確認中';
    document.getElementById('modeBadge').textContent='初回データ取得中';
@@ -672,8 +678,8 @@ async function fetchLive(generation=liveGeneration){
    state={...data,_receivedAt:Date.now(),_receivedMono:typeof performance!=='undefined'?performance.now():null,_roundTripMs:Math.max(0,Date.now()-started-Math.max(0,Number(data.processingMs)||0))};
    if(['OFF','ON'].includes(data.newsMode)&&data.autoTrade===false)runtimeConfig={newsMode:data.newsMode,autoTrade:false};
    document.getElementById('modeBadge').textContent='LIVE / 手動注文';
-   st.textContent='Webull実データ取得済み'+(data.limitations?.length?' · '+data.limitations.join(' / '):'');
-   st.className='small good';render();return true;
+   st.textContent='Webull応答取得済み';
+   st.className='small';render();return true;
  }catch(e){
    if(generation!==liveGeneration)return false;
    state={};document.getElementById('modeBadge').textContent='DATA ERROR';render(false);
