@@ -30,13 +30,13 @@ function liveView(){
   decisionAt:new Date(Date.now()).toISOString(),validUntil:new Date(Date.now()+1900).toISOString()}};render(false);`);
  return {...dom,run,advance:ms=>now+=ms};
 }
-function paperView(){
+function paperView(reply=()=>({status:401,ok:false,json:async()=>{throw Error('A 401 does not contain an authenticated snapshot');}})){
  const dom=elements(),calls=[],timers=[];let resolveHealth;
  const context=vm.createContext({Intl,URL,Date,Number,JSON,AbortSignal,crypto,
   setTimeout:fn=>{timers.push(fn);return timers.length;},clearTimeout(){},
   window:{addEventListener(){}},document:dom.document,
   fetch:async(url,options)=>{calls.push({url,options});if(url.endsWith('health'))return new Promise(resolve=>{resolveHealth=resolve;});
-   return {status:401,ok:false,json:async()=>{throw Error('A 401 does not contain an authenticated snapshot');}};}});
+   return reply(url,options);}});
  vm.runInContext(fs.readFileSync('paper.js','utf8'),context);
  return {...dom,calls,timers,run:source=>vm.runInContext(source,context),
   health:()=>resolveHealth({ok:true,json:async()=>({adminConfigured:true,paperAutoEnabled:true,accounts:{private:'must not render'}})})};
@@ -70,5 +70,22 @@ function paperView(){
  const publicOnly=paperView();publicOnly.health();await new Promise(setImmediate);
  assert.match(publicOnly.document.getElementById('runtime').textContent,/公開ヘルス.*PAPER状態は未確認/);
  assert.equal(publicOnly.run('paperSnapshot'),null);assert.equal(publicOnly.document.getElementById('comparison').children.length,0);
- console.log('PASS: response versus current freshness/readiness, expiry and closure; 401 unknown-state clearing, disabled controls, no public account inference or polling, source-time explanation.');
+ const saved=JSON.parse(fs.readFileSync('testdata/paper-synthetic-state.json','utf8'));let resolveOld;
+ const reconnect=paperView((url,options)=>options.headers.Authorization==='Bearer OLD_OFFLINE'
+  ?new Promise(resolve=>{resolveOld=resolve;})
+  :{status:200,ok:true,json:async()=>saved});
+ reconnect.run("paperToken='OLD_OFFLINE';paperConnected=true;");
+ const oldPoll=reconnect.run('poll()');
+ reconnect.run("paperToken='NEW_OFFLINE';paperConnected=true;el('account').value='V64_BASELINE_1:STANDARD';");
+ await reconnect.run('refresh()');
+ const before=reconnect.run('JSON.stringify(paperSnapshot)'),currentRuntime=reconnect.document.getElementById('runtime').textContent,
+  currentCash=reconnect.document.getElementById('cash').textContent;
+ resolveOld({status:401,ok:false,json:async()=>{throw Error('stale 401 must not be parsed');}});await oldPoll;
+ assert.equal(reconnect.run('paperToken'),'NEW_OFFLINE');assert.equal(reconnect.run('paperConnected'),true);
+ assert.equal(reconnect.run('paperAuthRequired'),false);assert.equal(reconnect.run('JSON.stringify(paperSnapshot)'),before);
+ assert.equal(reconnect.document.getElementById('cash').textContent,currentCash);
+ assert.equal(reconnect.document.getElementById('runtime').textContent,currentRuntime);
+ assert.equal(reconnect.document.getElementById('start').disabled,false);
+ assert.equal(reconnect.timers.length,0,'an old poll must not add a timer to the new connection');
+ console.log('PASS: response versus current freshness/readiness, expiry and closure; 401 unknown-state clearing, disabled controls, no public account inference or polling, stale-token 401 cannot erase a reconnected account.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
