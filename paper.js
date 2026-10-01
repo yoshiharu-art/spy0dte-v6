@@ -39,7 +39,7 @@ function show(s){
  lineList(el('position'),p?[['仮想IN価格',p.inPrice==null?'IN待ち':'$'+p.inPrice.toFixed(4)],['現在の決済評価',p.markFresh?'$'+p.markPrice.toFixed(4):'有効気配なし（リスク評価0）'],['IN時刻',when(p.inAt)],['保有時間',duration(a.clock.holdingSec)],['契約の最終取引まで',duration(a.clock.contractRemainingSec)],['戦略の強制OUTまで',duration(a.clock.forceRemainingSec)],['観測した最大含み益',p.mfe_pct==null?'--':p.mfe_pct.toFixed(1)+'%'],['観測した最大含み損',p.mae_pct==null?'--':p.mae_pct.toFixed(1)+'%']]:[]);
  el('comparison').replaceChildren();for(const b of Object.values(s.accounts)){const tr=document.createElement('tr');for(const v of [b.account_id,b.report.summary.trades,usd(b.realized_cents),b.max_drawdown_pct.toFixed(2)+'%',b.unresolved_count]){const td=document.createElement('td');td.textContent=v;tr.append(td);}el('comparison').append(tr);}
  showDecisionAnalysis(a.last_decision_analysis);
- showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen);
+ showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen,a.indicator_sampling);
  if(a.state==='FLAT'&&a.clock?.marketOpen===false)el('decision').textContent='市場時間外・予定休止';
  if(a.state==='FLAT'&&a.clock?.marketOpen&&a.last_indicator_analysis?.decisionClass==='SESSION_WARMUP')el('decision').textContent='寄付き後の形状確認待ち';
  if(a.state==='FLAT'&&a.entries_enabled&&a.clock?.marketOpen&&['SYSTEM_NOT_READY','DATA_ERROR'].includes(a.last_indicator_analysis?.decisionClass))el('decision').textContent=a.last_indicator_analysis.decisionClass==='DATA_ERROR'?'データ異常':'SYSTEM NOT READY：データ準備不足';
@@ -191,26 +191,34 @@ el('connect').addEventListener('click',()=>showTradeAccountChoices([]));
 
 function syncAccounts(accounts){
  const select=el('account'),selected=select.value;
- const labels={V64_BASELINE_1:'基準版',V64_TIME_1:'時間考慮版',V65_TREND_RETEST_1:'追加インジ旧版（当日から計算）',V65_TREND_RETEST_2:'追加インジ版2（前営業日から準備）'};
+ const labels={V64_BASELINE_1:'基準版',V64_TIME_1:'時間考慮版',V65_TREND_RETEST_1:'追加インジ旧版（当日から計算）',V65_TREND_RETEST_2:'追加インジ版2（厳格条件の比較用）',V65_BALANCED_3:'追加インジ版3（バランス検証）'};
  const known=Array.from(select.options).map(o=>o.value),keys=Object.keys(accounts||{});
  if(known.length===keys.length&&known.every(k=>keys.includes(k)))return;
  select.replaceChildren();
  for(const key of keys){const option=document.createElement('option');option.value=key;const [strategy,kind]=key.split(':');option.textContent=(labels[strategy]||strategy)+' · '+(kind==='STRESS'?'不利な条件':'通常条件');select.append(option);}
- const next='V65_TREND_RETEST_2:STANDARD';
+ const next=keys.includes('V65_BALANCED_3:STANDARD')?'V65_BALANCED_3:STANDARD':'V65_TREND_RETEST_2:STANDARD';
  if(!known.includes(next)&&keys.includes(next))select.value=next;
  else if(keys.includes(selected))select.value=selected;
 }
 function reasonText(value){
+ if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_BASE_REWARD_INSUFFICIENT')return '通常の費用込み試算で利益幅が損失幅に届きません';
  if(String(value||'').replace(/^INDICATOR: /,'')==='SETUP_WINDOW_WARMUP')return '寄付き後45分の節目・押し戻り形状を確認中';
  if(String(value||'').replace(/^INDICATOR: /,'')==='TREND_SEED_UNAVAILABLE')return 'EMA・ATRの準備に必要な前営業日の確定足が不足';
  if(String(value||'').includes('PREVIOUS_SESSION_LEVELS_UNAVAILABLE'))return String(value).replace('PREVIOUS_SESSION_LEVELS_UNAVAILABLE','前営業日の高値・安値が未取得');
  const names={RVOL_HISTORY_WARMUP:'同じ時間帯の出来高履歴を準備中',EMA_ATR_WARMUP:'確定した5分足を蓄積中',TREND_NOT_ALIGNED:'方向・傾きの一致待ち',ATR_CHASE_LIMIT:'直近の値幅に対して上昇・下落を追いかけすぎ',BREAKOUT_RETEST_NOT_CONFIRMED:'節目突破後の押し戻り・再開を確認できません',BREAKOUT_VOLUME_TOO_LOW:'節目突破時の出来高条件未達',STRUCTURE_RISK_OUTSIDE_ATR_BAND:'撤退地点までの値幅が条件外',INSUFFICIENT_PRICE_REWARD_RISK:'目標までの値幅に対して損失幅が大きい',OPTION_SCENARIOS_UNAVAILABLE:'オプション価格の試算ができません',OPTION_COST_TIME_IV_REWARD_INSUFFICIENT:'時間減価・IV低下・費用を含む試算が条件未達',STRUCTURE_BREAK:'追加版の撤退価格に到達',ATR_TRAIL:'ATRに応じた利益保護',MAX_HOLD:'追加版の保有時間上限',SETUP_ALREADY_TRADED:'同じ節目突破では取引済み',NO_PROGRESS:'保有後に必要な値動きが出ていません',CLOSED_BARS_STALE:'確定した足が古いため待機',SESSION_OPEN_MISSING:'寄付きからの足が不足'};
  const key=String(value||'').replace(/^INDICATOR: /,'');return names[key]||reasons[value]||value||'記録待ち';
 }
-function showIndicatorAnalysis(a,history,marketOpen){
+function showIndicatorAnalysis(a,history,marketOpen,sampling){
  const target=el('indicatorAnalysis');target.replaceChildren();
  const row=text=>{const p=document.createElement('p');p.textContent=text;target.append(p);};
  const num=n=>n==null?'未取得':Number(n).toFixed(3);
+ if(sampling){
+  row('検証データ '+sampling.session+'：判定 '+sampling.observations+'回 / 確定5分足×方向 '+sampling.unique5mWindows+'枠');
+  row('基準版BUY '+sampling.baselineBuyObservations+'回 / 基準版と追加条件の同時通過 '+sampling.combinedSignalObservations+'回・重複を除く '+sampling.uniqueCombinedSignalWindows+'枠（約定件数ではありません）');
+  row('見送りも保存します。同じ相場を繰り返し観測した回数を、独立した取引件数として扱いません。');
+  const names={coreTrend:'VWAP・EMAの方向',trendSupport:'傾きの補助確認',chase:'ATRの追いかけ制限',priceRewardRisk:'SPYの利益損失幅',baseOptionRewardRisk:'通常の費用込み試算',retest:'押し戻り確認',breakoutVolume:'突破時の出来高',allFiveTrend:'従来の方向5条件',ivStressRewardRisk:'IV低下の厳格試算'};
+  for(const kind of ['requiredChecks','studyChecks'])for(const [key,c] of Object.entries(sampling[kind]||{}))row((kind==='requiredChecks'?'必須：':'比較用：')+(names[key]||key)+' / 通過 '+c.passCount+'・未達 '+c.failCount+'・未評価 '+c.unavailableCount);
+ }
  if(history){
   const recovery=history.recovery||{},prev=history.previousDay||{};
   row('保存履歴の最新状態：'+(history.comparisonReadiness==='READY'?'利用可能':'SYSTEM NOT READY')+' / 対象営業日 '+(history.targetSession||'未確認'));
@@ -226,14 +234,15 @@ function showIndicatorAnalysis(a,history,marketOpen){
   row('以下は保存済みの市場中の判定です（現在の売買シグナルではありません）。');
  }
  if(!a){row('選択中の口座には追加版の判定記録がありません。口座欄に追加インジ版があれば選択してください。');return;}
- const f=a.features||{},r=f.breakoutRvol||{};
+ if(a.strategy==='V65_BALANCED_3')row('バランス検証版：基準版80点以上＋主要トレンド・値幅・通常の費用込み試算が必須。押し戻り、出来高、IV低下試算は比較用に記録します。撤退幅はATR1倍。収益性は未検証です。');
+ const f=a.features||{},r=a.studyLabels?.matched?.rvol||f.breakoutRvol||{};
  if(a.decisionClass)row('追加インジの判定区分：'+(({SESSION_WARMUP:'寄付き後の形状確認待ち（予定された待機）',SYSTEM_NOT_READY:'SYSTEM NOT READY：データ準備不足',DATA_ERROR:'DATA ERROR：計算・入力エラー',NO_TRADE:'NO TRADE：データ正常・相場条件未達',SIGNAL_READY:'追加条件を充足'})[a.decisionClass]||a.decisionClass));
  if(f.warmupUntil)row('形状を判定できる最短時刻 '+when(f.warmupUntil)+'。データ・売買条件の通過は別途必要です。');
  if(f.trendSeed)row('EMA・ATRの準備：前営業日 '+f.trendSeed.date+' の確定5分足 '+f.trendSeed.bars+'本を使用。VWAP・寄り付き高安・押し戻りは当日のみ。');
  row('判定時点 '+when(a.observedAt)+' / '+(a.status==='PASS'?'追加条件を充足（約定とは別）':(a.reasons||[]).map(reasonText).join(' / ')));
  row('確定5分足 '+(f.closed5mCount??0)+'本 / 最終足の確定 '+when(f.barCloseAt));
  row('VWAP '+num(f.vwap)+' / EMA9 '+num(f.ema9)+' / EMA21 '+num(f.ema21)+' / ATR14 '+num(f.atr14));
- row('節目突破時の相対出来高 '+(r.value==null?'未準備':num(r.value)+'倍')+' / 比較履歴 '+(r.samples??'未確認')+'営業日・必要 '+(r.requiredSamples??5)+'営業日 / 米東部 '+(r.slotET||'未確認')+' の同一5分枠');
+ row((a.strategy==='V65_BALANCED_3'&&!a.studyLabels?.matched?'参考5分足の相対出来高 ':'節目突破時の相対出来高 ')+(r.value==null?'未準備':num(r.value)+'倍')+' / 比較履歴 '+(r.samples??'未確認')+'営業日・必要 '+(r.requiredSamples??5)+'営業日 / 米東部 '+(r.slotET||'未確認')+' の同一5分枠');
  row('寄り後15分の高値 '+num(f.openingHigh)+' / 安値 '+num(f.openingLow)+' / 前日高安 '+(f.previousDay?.status==='READY'?num(f.previousDay.high)+' / '+num(f.previousDay.low):'完全な前日データなし'));
  if(a.plan)row('SPYの撤退価格 '+num(a.plan.invalidation)+' / 比較用の目標 '+num(a.plan.target)+' / 値幅の利益損失比 '+num(a.plan.priceRewardRisk));
  const scenarioNames={TARGET:'目標到達',TARGET_IV_DOWN:'目標到達・IV低下',STOP:'撤退価格到達',FLAT:'横ばい'};
