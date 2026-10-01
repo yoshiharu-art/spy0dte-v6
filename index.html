@@ -283,10 +283,9 @@ function normalizeLiveNews(s){
   return {level,title:n.title||n.event||'LIVE NEWS',phase:n.phase||'LIVE',lock:Boolean(n.lock??level==='HIGH'),watch:Boolean(n.watch),source:n.source||'LIVE',minutes:n.minutes??null,nextAt:n.eventTime||n.at||null};
 }
 function getNewsRisk(s,now=Date.now()){
- if(runtimeConfig?.newsMode==='OFF')return {level:'UNKNOWN',availability:'OFF',title:'突発ニュース未確認',phase:'OFF',lock:false,watch:false,source:'OFF'};
- const n=window.newsSnapshot?.newsRisk||s?.newsRisk;
- if(n && ['LOW','MEDIUM','HIGH'].includes(n.level) && typeof n.lock==='boolean' && typeof n.watch==='boolean' && Number.isFinite(Date.parse(n.validUntil)) && Date.parse(n.validUntil)>now && Date.parse(n.checkedAt)<=now+5000)return n;
- return {level:'MEDIUM',availability:'UNAVAILABLE',title:'newsRisk source unavailable',phase:'NORMAL',lock:true,watch:false,source:'ENGINE'};
+ const n=s?.paperNewsRisk||window.newsSnapshot?.monitor?.paperRisk;
+ if(n)return n;
+ return {level:'UNKNOWN',availability:'UNAVAILABLE',title:'ニュース未確認（記録のみ）',phase:'UNKNOWN',lock:false,watch:false,source:'PAPER'};
 }
 async function refreshNews(){
  try {const r=await fetch(new URL('api/news_monitor',API_URL),{cache:'no-store',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('news');window.newsSnapshot=await r.json();}
@@ -300,7 +299,7 @@ function newsCountdown(n){
   return 'T+'+m+'m';
 }
 function renderNewsRisk(n){
-  if(window.NewsUI){window.NewsUI.render(window.newsSnapshot?.monitor,state.newsComparison);return;}
+  if(window.NewsUI){window.NewsUI.render(window.newsSnapshot?.monitor,state.newsComparison,state.paperNewsRisk);return;}
   n=n||getNewsRisk(state);
   if(n.availability==='OFF'){
     document.getElementById('newsCard').className='card news-card medium';
@@ -408,15 +407,11 @@ function evaluate(s){
    const expiry=(Date.parse(sig.validUntil)-Date.parse(s.serverTime))/1000;
    if(decision.includes('BUY')||decision==='WATCH'){
      if(!Number.isFinite(expiry)||elapsedSeconds(s)>=expiry){decision='NO TRADE';reason='データの有効期限切れ：再取得待ち';}
-     else if(runtimeConfig?.newsMode!==s.newsMode){decision='NO TRADE';reason='ニュース設定の再確認待ち';}
      else if(s.side!==sig.side||!['CALL','PUT'].includes(sig.side)){decision='DATA ERROR';reason='判定方向と契約が一致しません';}
    }
    if(!['CALL BUY','PUT BUY','WATCH','NO TRADE','DATA ERROR'].includes(decision)){decision='DATA ERROR';reason='未対応の判定応答';}
  }
- if(decision.includes('BUY')||decision==='WATCH'){
-   const guarded=window.NewsUI?window.NewsUI.applyComparison({decision,reasons:[reason]},s.newsComparison,s.serverTime,elapsedSeconds(s)):{decision:'NO TRADE',reasons:['ニュース表示・判定の読み込み待ち']};
-   decision=guarded.decision;reason=guarded.reasons.join(' / ');
- }
+ // The server signal already applies scheduled-event risk. News comparison is research only.
  const rows=freshnessRows(s),fresh=rows.every(r=>r.fresh),closed=s.marketSession?.open===false&&s.marketSession?.calendarReady===true;
  if(decision.includes('BUY')&&!fresh){decision='NO TRADE';reason='購入用データの更新待ち';}
  if(decision.includes('BUY')&&(s.realtimeVerified!==true||s.marketHalted!==false||!s.instrumentId||!s.multiplierSource||!(finiteNumber(s.contractMultiplier)>0)||!(finiteNumber(s.askSize)>=1))){decision='NO TRADE';reason='購入条件の確認待ち：リアルタイム資格・取引可能状態・契約情報・気配数量';}
@@ -557,8 +552,8 @@ function render(updatePosition=true){
    document.getElementById('connectionStatus').textContent='Webull：接続・初回データを確認中';
    document.getElementById('modeBadge').textContent='初回データ取得中';
  }
- document.getElementById('newsModeStatus').textContent='ニュース自動監視・購入前フィルター';
- document.getElementById('newsWarning').textContent='自動仮想売買は従来条件を維持。ニュース考慮判定を比較記録します。';
+ document.getElementById('newsModeStatus').textContent='予定イベントリスクを判定に使用';
+ document.getElementById('newsWarning').textContent='突発ニュースは記録のみ。OFF・未確認・取得失敗だけではPAPERを停止しません。';
  document.getElementById('lastUpdate').textContent='最終データ更新：'+localTime(state.fetchedAt);
  const paperBlocks=[];
  if(state.realtimeVerified!==true)paperBlocks.push('リアルタイム資格未確認');

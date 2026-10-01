@@ -26,7 +26,7 @@ x.run('state={}');
 assert.equal(x.run('evaluate(state).decision'),'DATA ERROR','a real failed request remains an error');
 x.run("runtimeConfig={newsMode:'OFF',autoTrade:false};");
 assert.equal(x.run('getNewsRisk(state).level'),'UNKNOWN');
-assert.equal(x.run('getNewsRisk(state).title'),'突発ニュース未確認');
+assert.equal(x.run('getNewsRisk(state).title'),'ニュース未確認（記録のみ）');
 x.run("state={...structuredClone(scenarios.buy),_mock:true};");
 assert.equal(x.run('evaluate(state).decision'),'PUT BUY');
 assert.equal(x.run('openWebull()'),false,'simulation cannot open a purchase link');
@@ -37,8 +37,8 @@ x.run(`state={...scenarios.buy,ok:true,dataMode:'LIVE',provider:'Webull OpenAPI'
  barAt:new Date(Date.now()-60000).toISOString(),volPriceAt:new Date(Date.now()-20000).toISOString(),
  _receivedAt:Date.now(),_receivedMono:performance.now(),_roundTripMs:100,optionSymbol:'SPY260924P00667000',expiration:'2026-09-24',
  signal:{decision:'PUT BUY',side:'PUT',score:100,reasons:['unit fixture'],decisionAt:new Date(Date.now()).toISOString(),validUntil:new Date(Date.now()+1900).toISOString()}};`);
-assert.equal(x.run('evaluate(state).decision'),'NO TRADE','missing news comparison fails closed');
-// Synthetic complete permission isolates the existing price/cutoff tests. The public RSS backend never emits this BUY.
+assert.equal(x.run('evaluate(state).decision'),'PUT BUY','missing news comparison is advisory');
+// Legacy comparison is retained for research and cannot veto the server signal.
 x.run("state.newsComparison={baseDecision:'PUT BUY',decision:'PUT BUY',reasons:['synthetic complete test permission'],validUntil:state.signal.validUntil}");
 assert.equal(x.run('evaluate(state).decision'),'PUT BUY');
 x.run('render(false)');assert.equal(x.els.get('webullBtn').disabled,false);
@@ -48,10 +48,21 @@ assert.match(x.run('contractText()'),/2026-09-24/);assert.match(x.run('contractT
 const validBuyFixture=x.run('JSON.stringify(state)');
 for(const change of ["state.newsComparison=null","state.newsComparison.decision='WATCH'","state.newsComparison.decision='NO TRADE'","state.newsComparison.decision='CALL BUY'","state.newsComparison.validUntil=state.serverTime"]){
  const news=load(html);news.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture);news.run(change);
- assert(!news.run('evaluate(state).decision').includes('BUY'),change);assert.equal(news.run('openWebull()'),false,change);
+ assert.equal(news.run('evaluate(state).decision'),'PUT BUY',change);
 }
 const missingModule=load(html);missingModule.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture+";window.NewsUI=null");
-assert.equal(missingModule.run('evaluate(state).decision'),'NO TRADE','missing module fails closed');
+assert.equal(missingModule.run('evaluate(state).decision'),'PUT BUY','display module cannot veto server PAPER decision');
+
+for(const mode of ['ON','OFF','UNKNOWN','API ERROR']){
+ const advisory=load(html);advisory.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture);
+ advisory.run('state.newsMode='+JSON.stringify(mode));
+ assert.equal(advisory.run('evaluate(state).decision'),'PUT BUY','mode is advisory: '+mode);
+}
+const scheduled=load(html);scheduled.run("runtimeConfig={newsMode:'OFF'};state="+validBuyFixture);
+scheduled.run("state.signal.decision='NO TRADE';state.signal.reasons=['SCHEDULED_EVENT_LOCK'];state.newsComparison.decision='PUT BUY'");
+assert.equal(scheduled.run('evaluate(state).decision'),'NO TRADE','scheduled server veto is retained');
+assert.equal(scheduled.run('openWebull()'),false);
+
 // Even an old server's BUY/30-minute deadline cannot bypass the 60-minute rule.
 const cutoff=load(html);cutoff.run("runtimeConfig={newsMode:'OFF'};state="+x.run('JSON.stringify(state)'));
 for(const [minutes,expected] of [[61,'PUT BUY'],[60,'NO TRADE'],[59,'NO TRADE']]){
@@ -69,7 +80,7 @@ assert.equal(x.run('openWebull()'),false);assert.equal(x.opens.length,1);
 x.run('render(false)');assert.equal(x.els.get('webullBtn').disabled,true);
 // Expiration follows monotonic elapsed time even if the wall clock is changed.
 x.run('state._receivedAt=Date.now()+100000');assert.equal(x.run('evaluate(state).decision'),'NO TRADE');
-x.run("runtimeConfig={newsMode:'ON'};window.newsSnapshot=null;");assert.equal(x.run('getNewsRisk(state).lock'),true);
+x.run("runtimeConfig={newsMode:'ON'};window.newsSnapshot=null;");assert.equal(x.run('getNewsRisk(state).lock'),false);
 x.run(`position={active:true,entryTs:Date.now(),entryAsk:1,currentBid:1,peakBid:1,lowBid:1,side:'PUT',strike:667,expiration:'TODAY',thesisBreakCount:0};`);
 const before=x.run('JSON.stringify(position)');x.run('render(false);render(false)');assert.equal(x.run('JSON.stringify(position)'),before);
 assert(!html.slice(0,html.indexOf('<script>')).includes('>PUT BUY<'));
