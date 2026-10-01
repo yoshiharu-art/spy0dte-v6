@@ -1,6 +1,6 @@
 'use strict';
 const PAPER_API='https://spy0dte-live-backend-v2.vercel.app/api/paper/';
-let paperToken='',paperSnapshot=null,paperTimer=null,paperBusy=false,paperConnected=false;
+let paperToken='',paperSnapshot=null,paperTimer=null,paperBusy=false,paperConnected=false,paperAuthRequired=false;
 const el=id=>document.getElementById(id);
 const usd=c=>c==null?'--':new Intl.NumberFormat('ja-JP',{style:'currency',currency:'USD'}).format(c/100);
 const percent=n=>n==null?'--':(100*n).toFixed(1)+'%';
@@ -12,12 +12,33 @@ let tradeAccountChoices=[];
 const statusNames={FLAT:'見送り',IN_PENDING:'仮想IN待ち',OPEN:'保有継続',OUT_PENDING:'決済待ち',CLOSED:'決済済み'};
 const reasons={OUTSIDE_MARKET_HOURS:'市場時間外のため取得・新規購入を休止',TIME_ENTRY_LOCK:'新規購入の時間外（保有管理は継続）',MARKET_CALENDAR_UNAVAILABLE:'取引カレンダーの確認待ち',ENTRY_STOPPED:'新規IN停止中',LOSS_LIMIT:'損失上限に到達',REALTIME_UNVERIFIED:'リアルタイム権限・遅延を確認できません',HALT_STATUS_UNVERIFIED:'市場停止状態を確認できません',CONTRACT_METADATA_MISSING:'契約ID・倍率が未取得',STALE_QUOTE:'気配が古いため待機',STALE_RECEIPT:'受信データが古いため待機',OUTSIDE_FILL_WINDOW:'市場時間外',DATA_MODE_MISMATCH:'有効な実相場データがありません',DATA_UNAVAILABLE:'相場データ未取得',FIXED_CONTRACT_MISMATCH:'保有契約と気配が一致しません',ASK_SIZE_MISSING_OR_EMPTY:'売り板数量が未取得または不足',BID_SIZE_MISSING_OR_EMPTY:'買い板数量が未取得または不足',CAPITAL_LIMIT:'仮想資金の購入上限超過',FORCE_EXIT:'強制終了時刻',HARD_STOP:'損失率上限',THESIS_BREAK:'売買根拠の崩れ',PROFIT_TRAIL:'RUNNER利益保護',OPPOSITE_SIGNAL:'反対方向シグナル',NO_PROGRESS:'伸びず勢いも低下',TIME_DECAY:'保有時間・勢い・利益条件',NO_VALID_FILL_BEFORE_CLOSE:'取引終了まで決済できず未解決',MANUAL_EXIT:'利用者の仮想決済要求',TIME_SCORE_OR_SPREAD:'残り時間に対するスコア・スプレッド条件未達',SIGNAL_ACCEPTED:'購入候補を受付。新しい気配を待っています',NOT_STARTED:'仮想売買は未開始'};
 async function request(path,body){
- const options={cache:'no-store',headers:{Authorization:'Bearer '+paperToken},signal:AbortSignal.timeout(55000)};
+ const requestToken=paperToken;
+ const current=()=>{if(requestToken!==paperToken)throw Object.assign(Error('接続が切り替わったため以前の応答を破棄しました。'),{stalePaperRequest:true});};
+ const options={cache:'no-store',headers:{Authorization:'Bearer '+requestToken},signal:AbortSignal.timeout(55000)};
  if(body!==undefined){options.method='POST';options.headers['Content-Type']='application/json';options.body=JSON.stringify(body);}
- const r=await fetch(PAPER_API+path,options);let data;
- try{data=await r.json();}catch{throw Error('仮想売買APIの公開状態を確認できません');}
+ let r,data;
+ try{r=await fetch(PAPER_API+path,options);}catch(e){current();throw e;}
+ current();
+ if(r.status===401){showAuthRequired();throw Error('管理用認証が必要です。再接続してください。');}
+ try{data=await r.json();}catch{current();throw Error('仮想売買APIの公開状態を確認できません');}
+ current();
  if(!r.ok||data.ok===false)throw Error(r.status===401?'管理用認証が必要です':r.status===409?'別の判定処理中です。次回更新を待ちます':data.error==='PAPER_STORE_UNAVAILABLE'?'サーバーの永続保存に接続できません':data.error==='PAPER_REQUEST_OR_STATE_INVALID'?'開始設定・保存許諾・口座状態を確認してください':'仮想売買API未接続または処理失敗');
  return data;
+}
+function showAuthRequired(){
+ paperAuthRequired=true;paperConnected=false;clearTimeout(paperTimer);paperToken='';
+ paperSnapshot=null;paperDiagnostics=null;exitStudySnapshot=null;exitStudyAccount=null;
+ for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy'])el(id).replaceChildren();
+ for(const id of ['equity','cash','daily','realized','unrealized','fees','dd','uptime'])el(id).textContent='--';
+ const unknown={runtime:'管理用認証が必要：PAPER状態は未確認',runtimeDetail:'実注文OFF / 認証付きの稼働状態・口座記録を取得できません。',
+  dataMode:'認証付きPAPER状態は未取得',decision:'PAPER状態未確認',reason:'購入・保有・履歴は未確認です。管理用認証で再接続してください。',
+  updated:'最終実行 未確認',qualityAt:'判定記録は未確認です。',contract:'保有状態は未確認です。',stats:'取引件数・損益は未確認です。',
+  history:'取引履歴は未確認です。',diagnostics:'見送り理由は未確認です。',decisionAnalysis:'購入判断の記録は未確認です。',
+  indicatorAnalysis:'追加インジの判定記録は未確認です。',executionQuality:'約定の記録は未確認です。',unresolved:'未解決の保有状態は未確認です。',
+  exitReview:'決済記録は未確認です。',exitStudyStatus:'Exit比較は未確認です。',config:'口座設定は未確認です。'};
+ for(const [id,message] of Object.entries(unknown))el(id).textContent=message;
+ for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyExport','tradePreflight'])el(id).disabled=true;
+ showTradeAccountChoices([]);el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証で再接続してください。';
 }
 function lineList(target,rows){target.replaceChildren();for(const [k,v] of rows){const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=k;b.textContent=v;target.append(a,b);}}
 function show(s){
@@ -65,12 +86,12 @@ async function refresh(){
     !Object.values(s.accounts||{}).some(a=>a.clock?.marketOpen)&&
     (!h.recovery?.nextAttemptAt||Date.parse(h.recovery.nextAttemptAt)<=Date.now())){
   try{show(await request('indicator-history-recovery',{}));}
-  catch(e){el('message').textContent='履歴の自動補完：'+e.message+'。次回更新で再確認します。';return false;}
+  catch(e){if(e.stalePaperRequest)throw e;el('message').textContent='履歴の自動補完：'+e.message+'。次回更新で再確認します。';return false;}
  }
  return true;
 }
-async function poll(){if(!paperConnected||paperBusy)return;paperBusy=true;try{await refresh();}catch(e){el('message').textContent=e.message;el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected)paperTimer=setTimeout(poll,60000);}}
-async function command(c){try{show(await request('command',{command:c,account_id:c==='exit'?el('account').value:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){el('message').textContent=e.message;}}
+async function poll(){if(!paperConnected||paperBusy)return;const requestToken=paperToken;paperBusy=true;try{await refresh();}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;if(!paperAuthRequired)el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected&&requestToken===paperToken)paperTimer=setTimeout(poll,60000);}}
+async function command(c){try{show(await request('command',{command:c,account_id:c==='exit'?el('account').value:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;}}
 async function journalDownload(){
   const raw=[];let start=0,end=null;
   while(true){
@@ -97,23 +118,23 @@ async function download(format){
     const b=new Blob([content],{type:format==='csv'?'text/csv;charset=utf-8':'application/json'});
     const url=URL.createObjectURL(b),a=document.createElement('a');
     a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url);
-  }catch(e){el('message').textContent=e.message;}
+  }catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;}
 }
-el('connect').addEventListener('click',async()=>{paperToken=el('token').value;el('token').value='';clearTimeout(paperTimer);paperConnected=false;el('tradePreflight').disabled=true;el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証を確認中…';try{const ready=await refresh();paperConnected=true;paperTimer=setTimeout(poll,60000);if(ready)el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';el('tradePreflightStatus').textContent='接続診断を実行できます。';}catch(e){el('message').textContent=e.message;el('tradePreflightStatus').textContent='管理用認証後に実行できます。';}});
+el('connect').addEventListener('click',async()=>{paperToken=el('token').value;paperAuthRequired=false;el('token').value='';clearTimeout(paperTimer);paperConnected=false;el('tradePreflight').disabled=true;el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証を確認中…';try{const ready=await refresh();paperConnected=true;paperTimer=setTimeout(poll,60000);if(ready)el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';el('tradePreflightStatus').textContent='接続診断を実行できます。';}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;el('tradePreflightStatus').textContent='管理用認証後に実行できます。';}});
 async function reviewExits(){
  try{const data=await request('exit-review');const target=el('exitReview');target.replaceChildren();
  const note=document.createElement('p');note.textContent='EXIT_PLUS5M_V1 / 検証不足 / 読取 '+data.coverage.journal_events_read+'ログ / 対象外の古い決済 '+data.trades_omitted+'件'+(data.coverage.older_events_may_be_omitted?' / 古い観測は読取範囲外の可能性あり':'');target.append(note);
  const names={WAITING:'観測時刻の到来待ち',MISSING_OBSERVATION:'観測不足',OUTSIDE_SESSION:'取引時間外',CONFIG_MISMATCH:'設定不一致',OBSERVED_RETROSPECTIVE:'事後試算（約定ではありません）'};
  for(const row of data.rows){const p=document.createElement('p');p.textContent=row.account_id+' / '+row.trade_id+' / '+(names[row.status]||row.status)+' / 正式 '+usd(row.official_net_cents)+' / 5分後試算 '+usd(row.hypothetical_net_cents)+' / 差 '+usd(row.difference_cents)+' / 観測 '+when(row.observed_at);target.append(p);}
  if(!data.rows.length){const p=document.createElement('p');p.textContent='比較対象の決済履歴はまだありません';target.append(p);}
- }catch(e){el('exitReview').textContent=e.message;}
+ }catch(e){if(e.stalePaperRequest)return;el('exitReview').textContent=e.message;}
 }
 el('review').addEventListener('click',reviewExits);
 el('account').addEventListener('change',()=>{if(paperSnapshot)show(paperSnapshot);});
 for(const [id,c] of [['start','start'],['pause','pause'],['exit','exit']])el(id).addEventListener('click',()=>command(c));
 for(const id of ['json','csv','journal'])el(id).addEventListener('click',()=>download(id));
 window.addEventListener('pagehide',()=>{paperConnected=false;clearTimeout(paperTimer);paperToken='';});
-fetch(PAPER_API+'health',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(s=>{el('runtime').textContent=s.release=== '6.4-paper-auto-candidate-1'?'PAPER接続待ち':'PAPER版の公開確認待ち';el('runtimeDetail').textContent=s.adminConfigured?'認証後に状態を確認できます':'管理認証のサーバー設定が必要です。自動運転は未開始です。';}).catch(()=>{el('runtime').textContent='仮想売買APIは未接続';el('runtimeDetail').textContent='バックエンドの公開・認証設定が完了するまで開始できません。';});
+fetch(PAPER_API+'health',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(s=>{if(paperSnapshot||paperToken||paperAuthRequired)return;el('runtime').textContent='公開ヘルスを確認済み・PAPER状態は未確認';el('runtimeDetail').textContent=s.adminConfigured?'稼働状態・残高・取引件数は管理用認証後に確認できます。':'管理認証のサーバー設定が必要です。口座の稼働状態は未確認です。';}).catch(()=>{if(paperSnapshot||paperToken||paperAuthRequired)return;el('runtime').textContent='公開ヘルスを取得できません・PAPER状態は未確認';el('runtimeDetail').textContent='バックエンドの公開状態と管理用認証を確認してください。';});
 
 function showDiagnostics(){
  const target=el('diagnostics');if(!paperDiagnostics)return;
@@ -131,7 +152,7 @@ function showDiagnostics(){
  const timing=latest.acquisition_timing;if(timing?.samples){const row=document.createElement('p');row.textContent='取得処理時間：平均 '+Number(timing.mean_ms).toFixed(0)+'ms / 最大 '+Number(timing.max_ms).toFixed(0)+'ms / '+timing.samples+'回。元データの古さとは別の測定です。';target.append(row);}
  const tail=document.createElement('p');tail.textContent='記録範囲全体：対象 '+whole.decisions+'回 / データ条件未達 '+percent(whole.data_blocked_rate)+'。各口座の件数は合算しません。';target.append(tail);
 }
-el('diagnose').addEventListener('click',async()=>{const button=el('diagnose');button.disabled=true;el('diagnostics').textContent='保存済みログを集計中…';try{paperDiagnostics=await request('diagnostics');showDiagnostics();}catch(e){el('diagnostics').textContent=e.message;}finally{button.disabled=false;}});
+el('diagnose').addEventListener('click',async()=>{const button=el('diagnose');button.disabled=true;el('diagnostics').textContent='保存済みログを集計中…';try{paperDiagnostics=await request('diagnostics');showDiagnostics();}catch(e){if(e.stalePaperRequest)return;el('diagnostics').textContent=e.message;}finally{button.disabled=!paperConnected;}});
 
 function showDecisionAnalysis(a){
  const target=el('decisionAnalysis');target.replaceChildren();
@@ -201,6 +222,7 @@ function syncAccounts(accounts){
  else if(keys.includes(selected))select.value=selected;
 }
 function reasonText(value){
+ if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_QUOTE_STALE')return 'オプション気配が判定時点の鮮度上限を超えたため待機';
  if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_BASE_REWARD_INSUFFICIENT')return '通常の費用込み試算で利益幅が損失幅に届きません';
  if(String(value||'').replace(/^INDICATOR: /,'')==='SETUP_WINDOW_WARMUP')return '寄付き後45分の節目・押し戻り形状を確認中';
  if(String(value||'').replace(/^INDICATOR: /,'')==='TREND_SEED_UNAVAILABLE')return 'EMA・ATRの準備に必要な前営業日の確定足が不足';
@@ -275,8 +297,8 @@ function showExitStudy(data){
 el('exitStudyLoad').addEventListener('click',async()=>{
  const button=el('exitStudyLoad'),account=el('account').value;button.disabled=true;el('exitStudyStatus').textContent='保存されたExit比較を読み込み中…';
  try{const data=await request('exit-study?account='+encodeURIComponent(account));if(el('account').value!==account)return;exitStudySnapshot=data;exitStudyAccount=account;showExitStudy(data);el('exitStudyExport').disabled=false;}
- catch(e){el('exitStudyStatus').textContent=e.message;}
- finally{button.disabled=false;}
+ catch(e){if(e.stalePaperRequest)return;el('exitStudyStatus').textContent=e.message;}
+ finally{button.disabled=!paperConnected;}
 });
 el('account').addEventListener('change',()=>{exitStudySnapshot=null;exitStudyAccount=null;el('exitStudy').replaceChildren();el('exitStudyExport').disabled=true;el('exitStudyStatus').textContent='選択口座が変わりました。「Exit比較を更新」で読み込んでください。';});
 el('exitStudyExport').addEventListener('click',()=>{

@@ -1,0 +1,32 @@
+name: PAPER rebound clarity verification
+on:
+  push:
+    branches:
+      - fix/paper-rebound-clarity-20261001
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install test dependencies
+        run: npm install --ignore-scripts
+      - name: Run default regression suite
+        run: npm test
+      - name: Run remaining UI regressions
+        if: always()
+        run: |
+          for test_file in test_*.cjs; do
+            case "$test_file" in
+              test_trial.cjs|test_paper.cjs|test_retry.cjs|test_frontend_clarity.cjs) continue ;;
+            esac
+            node "$test_file"
+          done
