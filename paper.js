@@ -53,7 +53,7 @@ function show(s){
  el('entryWindow').textContent='新規購入は通常取引終了の60分前で停止。締切後も保有分の売却判断を継続します。'+(a.clock?.entryEndsAt?' 当日の購入締切：'+when(a.clock.entryEndsAt):'');
  el('config').textContent=JSON.stringify({現在の新規購入制限:s.entry_constraints,記録開始時の固定戦略設定:a.policy,ニュース判定方針:s.newsDecisionPolicy,予定イベント判定:a.last_paper_news_risk,設定注記:'新規購入は固定戦略より厳しい60分前の制限を適用。過去の設定・残高・履歴は保持。',コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'EXIT_PLUS5M_V1：保存済み気配のみ・正式損益と分離'},null,2);
  showDiagnostics();
- for(const id of ['start','pause','exit','json','csv','journal','review','diagnose'])el(id).disabled=false;
+ for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad'])el(id).disabled=false;
  el('tradePreflight').disabled=tradePreflightBusy;
 }
 async function refresh(){
@@ -249,3 +249,37 @@ function showIndicatorAnalysis(a,history,marketOpen,sampling){
  for(const c of a.scenarios?.cases||[])row((scenarioNames[c.name]||c.name)+' / '+c.holdMinutes+'分後 / 費用込み試算 '+usd(c.netCents));
  if(a.scenarios)row('試算は価格予測・期待利益ではありません。IV、将来の売買価格差、約定条件は実相場で確認します。');
 }
+
+let exitStudySnapshot=null,exitStudyAccount=null;
+function showExitStudy(data){
+ const root=el('exitStudy');root.replaceChildren();
+ const number=v=>v==null?'--':Number(v).toFixed(2);
+ const dollars=v=>v==null?'--':'$'+Number(v).toFixed(2);
+ const paragraph=text=>{const p=document.createElement('p');p.textContent=text;root.append(p);};
+ const table=(headers,rows)=>{const wrap=document.createElement('div');wrap.className='tableWrap';const t=document.createElement('table'),head=document.createElement('thead'),body=document.createElement('tbody'),hr=document.createElement('tr');for(const h of headers){const th=document.createElement('th');th.textContent=h;hr.append(th);}head.append(hr);for(const row of rows){const tr=document.createElement('tr');for(const v of row){const td=document.createElement('td');td.textContent=v;tr.append(td);}body.append(tr);}t.append(head,body);wrap.append(t);root.append(wrap);};
+ el('exitStudyStatus').textContent='検証不足 / 記録中 '+(data.active?.length??0)+'件 / 全口座の追跡完了 '+(data.completed_total??0)+'件 / 記録エラー '+(data.errors??0)+'件。自動採用はしません。';
+ if(!Object.keys(data.groups||{}).length)paragraph('比較できる完了取引はまだありません。');
+ for(const [group,g] of Object.entries(data.groups||{})){
+  paragraph(group.split('|')[0]+' / 同一条件の完全観測 '+g.paired_complete+'件 / 観測不足 '+g.partial+'件');
+  table(['Exit案','件数','勝率','平均利益','平均損失','PF','期待値','実現損益DD','平均保有','MFE回収率','+50→損失','早すぎたExit','+50決済との差'],Object.entries(g.candidates||{}).map(([k,m])=>[k+' '+m.label,m.samples,percent(m.win_rate),dollars(m.average_profit),dollars(m.average_loss),number(m.profit_factor),dollars(m.expectancy),dollars(m.max_realized_drawdown_usd),duration(m.average_hold_seconds),percent(m.mfe_capture_ratio),m.reached50_then_loss,m.early_exit_then_additional25pp,dollars(m.delta_vs_plus50_exit_usd)]));
+  paragraph('上表は同じ取引群だけの比較です。実現損益DDは口座全体のDDではありません。MFE回収率は費用後確定損益÷費用前の最大含み益。');
+ }
+ for(const [group,book] of Object.entries(data.portfolios||{})){
+  paragraph(group.split('|')[0]+' / 1枚運用の口座試算（現行版のIN機会のみ）');
+  table(['Exit案','決済','勝率','平均利益','平均損失','PF','期待値','保守最大DD','観測最大DD','重複見送り','資金・損失制限','気配欠損'],Object.entries(book).map(([k,m])=>[k,m.trades,percent(m.win_rate),dollars(m.average_profit),dollars(m.average_loss),number(m.profit_factor),dollars(m.expectancy),number(m.max_drawdown_pct)+'%',number(m.observed_max_drawdown_pct)+'%',m.skipped_overlap,m.skipped_risk,m.missing_marks]));
+ }
+ for(const text of data.limitations||[])paragraph(text);
+ const details=document.createElement('details'),title=document.createElement('summary');title.textContent='各取引の到達時刻・押し戻し・SPY構造・候補OUTを確認';details.append(title);
+ const pre=document.createElement('pre');pre.textContent=JSON.stringify({記録中:data.active||[],完了:data.rows||[]},null,2);details.append(pre);root.append(details);
+}
+el('exitStudyLoad').addEventListener('click',async()=>{
+ const button=el('exitStudyLoad'),account=el('account').value;button.disabled=true;el('exitStudyStatus').textContent='保存されたExit比較を読み込み中…';
+ try{const data=await request('exit-study?account='+encodeURIComponent(account));if(el('account').value!==account)return;exitStudySnapshot=data;exitStudyAccount=account;showExitStudy(data);el('exitStudyExport').disabled=false;}
+ catch(e){el('exitStudyStatus').textContent=e.message;}
+ finally{button.disabled=false;}
+});
+el('account').addEventListener('change',()=>{exitStudySnapshot=null;exitStudyAccount=null;el('exitStudy').replaceChildren();el('exitStudyExport').disabled=true;el('exitStudyStatus').textContent='選択口座が変わりました。「Exit比較を更新」で読み込んでください。';});
+el('exitStudyExport').addEventListener('click',()=>{
+ if(!exitStudySnapshot||exitStudyAccount!==el('account').value)return;
+ const url=URL.createObjectURL(new Blob([JSON.stringify(exitStudySnapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='paper-exit-study.json';a.click();URL.revokeObjectURL(url);
+});
