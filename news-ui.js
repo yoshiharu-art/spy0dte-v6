@@ -28,20 +28,20 @@
    footer.append(link('https://spy0dte-live-backend-v2.vercel.app/api/news_history','直近の自動監視履歴を見る'));
    root.append(footer);card.append(root);
  }
- function render(m,comparison){
+ function render(m,comparison,paperRisk){
    ensure();if(!root)return;
-   const expired=!m?.guard?.validUntil||Date.parse(m.guard.validUntil)<=Date.now()||Date.parse(m.guard.checkedAt)>Date.now()+5000;
-   const g=expired?{title:'ニュース状態を更新中・期限切れ',lock:true,availability:'UNAVAILABLE'}:m.guard;
-   text('newsLevel',g.lock?'新規購入 停止':'警戒・速報は一部監視');
-   text('newsEvent',g.title);text('newsPhase',g.phase||'更新待ち');
-   text('newsSource',m?'自動収集 '+stamp(m.checkedAt):'取得待ち');
+   const risk=paperRisk||m?.paperRisk;
+   const expired=!risk?.validUntil||Date.parse(risk.validUntil)<=Date.now()||Date.parse(risk.checkedAt)>Date.now()+5000;
+   const g=expired?{title:'予定イベントの判定を更新中',lock:false,watch:false,availability:'UNAVAILABLE'}:risk;
+   text('newsLevel',g.lock?'予定イベント：新規停止':g.watch?'予定イベント：警戒':'予定イベントリスク');
+   text('newsEvent',g.title);text('newsPhase',g.phase||'未確認');
+   text('newsSource',m?'自動収集 '+stamp(m.checkedAt):'ニュース未確認');
    text('newsCountdown',g.minutes==null?'--':(g.minutes>=0?'T−':'T＋')+Math.ceil(Math.abs(g.minutes))+'分');
-   text('newsLockText',g.lock?'重要ニュース・取得不足により購入待機':'公開RSSによる監視。ニュース込みのBUY許可は出しません。');
-   document.getElementById('newsCard').className='card news-card '+(g.level==='HIGH'?'high':'medium');
+   text('newsLockText',g.lock||g.watch?'確認済み予定イベントの危険時間帯。新規購入は既存ルールで待機。':'突発ニュース未確認（記録のみ）。OFF・取得失敗だけではPAPERを停止しません。');
+   document.getElementById('newsCard').className='card news-card '+(g.lock?'high':'medium');
    document.getElementById('newsLevel').className='news-level '+(g.lock?'bad':'warn');
    document.getElementById('newsLockText').className='news-lock '+(g.lock?'bad':'warn');
-   const cmp=applyComparison({decision:comparison?.baseDecision||'未判定',reasons:[]},comparison,new Date().toISOString(),0);
-   text('newsComparisonResult',comparison?'価格条件：'+comparison.baseDecision+' → ニュース考慮：'+cmp.decision+'（自動仮想口座は従来条件）':'ニュース考慮判定：価格データ待ち');
+   text('newsComparisonResult',comparison?'旧ニュース比較（参考・売買に不使用）：'+comparison.decision:'旧ニュース比較：未確認（売買に不使用）');
    const key=JSON.stringify([m?.checkedAt,expired]);if(lastRenderKey===key)return;lastRenderKey=key;
    const upcoming=document.getElementById('newsUpcoming');upcoming.replaceChildren(el('strong','次の重要発表'));
    const schedule=(m?.upcoming||[]).slice(0,5);
