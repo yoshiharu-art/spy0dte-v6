@@ -15,5 +15,9 @@ assert.match(text,/予定された待機/);assert.match(text,/45分/);assert.mat
 const accounts={'V65_TREND_RETEST_1:STANDARD':{},'V65_TREND_RETEST_2:STANDARD':{}};
 w.sync(accounts);const select=w.document.getElementById('account');assert.equal(select.value,'V65_TREND_RETEST_2:STANDARD');
 select.value='V65_TREND_RETEST_1:STANDARD';w.sync(accounts);assert.equal(select.value,'V65_TREND_RETEST_1:STANDARD');
-assert.match(select.options[0].textContent,/旧版/);assert.match(select.options[1].textContent,/前営業日から準備/);
+assert.match(select.options[0].textContent,/旧版/);assert.match(select.options[1].textContent,/厳格条件の比較用/);
+accounts['V65_BALANCED_3:STANDARD']={};w.sync(accounts);assert.equal(select.value,'V65_BALANCED_3:STANDARD');
+w.render({strategy:'V65_BALANCED_3',features:{},reasons:[]},null,true,{session:'2026-10-01',observations:12,unique5mWindows:3,baselineBuyObservations:4,combinedSignalObservations:2,uniqueCombinedSignalWindows:1,requiredChecks:{coreTrend:{passCount:9,failCount:3,unavailableCount:0}},studyChecks:{retest:{passCount:0,failCount:12,unavailableCount:0}}});
+text=w.document.getElementById('indicatorAnalysis').textContent;
+assert.match(text,/バランス検証版/);assert.match(text,/約定件数ではありません/);assert.match(text,/比較用：押し戻り確認/);assert.match(text,/独立した取引件数/);
 console.log('PASS: v2 selection, explicit legacy selection preserved, planned warmup, offhours separated and saved market evidence retained');
