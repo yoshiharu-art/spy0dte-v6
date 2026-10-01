@@ -1,0 +1,24 @@
+const fs=require('fs'),assert=require('assert/strict'),{JSDOM}=require('jsdom');
+const dom=new JSDOM(fs.readFileSync('paper.html','utf8'),{url:'https://yoshiharu-art.github.io/spy0dte-v6/paper.html',runScripts:'outside-only'}),w=dom.window;
+const state=JSON.parse(fs.readFileSync('testdata/paper-synthetic-state.json','utf8'));
+const calls=[];const study={completed_total:2,active:[],rows:[],errors:0,limitations:['観測不足は補間しません'],groups:{'V64_BASELINE_1:STANDARD|hash':{paired_complete:1,partial:1,candidates:{A:{label:'<img src=x onerror=alert(1)>',samples:1,win_rate:.5,average_profit:20,average_loss:-10,profit_factor:2,expectancy:5,max_realized_drawdown_usd:10,average_hold_seconds:300,mfe_capture_ratio:.4,reached50_then_loss:0,early_exit_then_additional25pp:1,delta_vs_plus50_exit_usd:15}}}},portfolios:{}};
+w.AbortSignal={timeout:()=>undefined};w.setTimeout=()=>1;w.clearTimeout=()=>{};
+w.fetch=async(url,options={})=>{calls.push({url,options});return {ok:true,status:200,json:async()=>url.endsWith('health')?{release:'6.4',adminConfigured:true}:url.includes('exit-study?')?study:structuredClone(state)}};
+w.eval(fs.readFileSync('paper.js','utf8'));
+(async()=>{
+ await new Promise(setImmediate);
+ assert.equal(w.document.getElementById('exitStudyLoad').disabled,true);
+ w.document.getElementById('token').value='TEST_ADMIN';w.document.getElementById('connect').click();await new Promise(setImmediate);
+ w.document.getElementById('exitStudyLoad').click();await new Promise(setImmediate);
+ const request=calls.find(x=>x.url.includes('exit-study?'));
+ assert.equal(request.options.method,undefined);assert.equal(request.options.headers.Authorization,'Bearer TEST_ADMIN');
+ assert.match(w.document.getElementById('exitStudyStatus').textContent,/検証不足/);
+ assert.match(w.document.getElementById('exitStudy').textContent,/40.0%/);
+ assert.equal(w.document.querySelector('#exitStudy img'),null);
+ assert.match(w.document.getElementById('cash').textContent,/9,993/);
+ w.document.getElementById('account').value='V64_TIME_1:STANDARD';w.document.getElementById('account').dispatchEvent(new w.Event('change'));
+ assert.equal(w.document.getElementById('exitStudyExport').disabled,true);
+ assert.equal(w.document.getElementById('exitStudy').textContent,'');
+ assert(!calls.some(x=>x.url.endsWith('/tick')||x.url.endsWith('/command')));
+ console.log('Exit study UI: auth, GET-only, metrics, XSS, preserved balance, account switch passed');
+})().catch(e=>{console.error(e);process.exitCode=1;});
