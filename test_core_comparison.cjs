@@ -58,9 +58,14 @@ run('show(snapshot)');assert.match(text('entryFunnel'),/観測 0回.*有効デ�
 assert.match(text('entryFunnel'),/購入指示 未記録件.*PAPER購入約定 未記録件/);
 assert.doesNotMatch(text('entryFunnel'),/NaN|Infinity/);
 delete core.entry_funnel;run('show(snapshot)');assert.match(text('entryFunnel'),/新集計は未記録.*ゼロとして補完しません/);
+run("el('exitStudy').textContent='OLD_STUDY';showExitStudy({spec:{version:'EXIT_STUDY_2'},study_hash:'TEST_HASH',groups:{},portfolios:{}},'V2')");
+assert.match(text('exitStudyV2'),/EXIT_STUDY_2.*TEST_HASH/);
+assert.equal(document.getElementById('exitStudy').textContent,'OLD_STUDY');
+assert.match(text('exitStudyV2Status'),/検証不足.*自動採用はしません/);
 run("el('account').value='V64_BASELINE_1:STANDARD';show(snapshot)");
 assert.equal(document.getElementById('account').value,'V64_BASELINE_1:STANDARD','explicit legacy selection remains available');
 run('showAuthRequired()');assert.match(text('entryFunnel'),/件数は未確認/);
+assert.equal(document.getElementById('exitStudyV2').children.length,0);assert.equal(document.getElementById('exitStudyV2Export').disabled,true);
 assert.equal(document.getElementById('comparison').children.length,0);
 assert(nodes.values().every(n=>n.innerHTML===''),'new data renders as text');
 assert.match(fs.readFileSync('paper.html','utf8'),/実注文 OFF/);

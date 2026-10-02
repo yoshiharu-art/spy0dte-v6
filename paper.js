@@ -32,17 +32,17 @@ async function request(path,body){
 }
 function showAuthRequired(){
  paperAuthRequired=true;paperConnected=false;clearTimeout(paperTimer);paperToken='';
- paperSnapshot=null;paperDiagnostics=null;exitStudySnapshot=null;exitStudyAccount=null;
- for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy'])el(id).replaceChildren();
+ paperSnapshot=null;paperDiagnostics=null;exitStudySnapshot=null;exitStudyAccount=null;exitStudyV2Snapshot=null;exitStudyV2Account=null;
+ for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy','exitStudyV2'])el(id).replaceChildren();
  for(const id of ['equity','cash','daily','realized','unrealized','fees','dd','uptime'])el(id).textContent='--';
  const unknown={runtime:'管理用認証が必要：PAPER状態は未確認',runtimeDetail:'実注文OFF / 認証付きの稼働状態・口座記録を取得できません。',
   dataMode:'認証付きPAPER状態は未取得',decision:'PAPER状態未確認',reason:'購入・保有・履歴は未確認です。管理用認証で再接続してください。',
   updated:'最終実行 未確認',qualityAt:'判定記録は未確認です。',contract:'保有状態は未確認です。',stats:'取引件数・損益は未確認です。',
   history:'取引履歴は未確認です。',diagnostics:'見送り理由は未確認です。',decisionAnalysis:'購入判断の記録は未確認です。',
   indicatorAnalysis:'追加インジの判定記録は未確認です。',entryFunnel:'観測・購入指示・約定の件数は未確認です。',executionQuality:'約定の記録は未確認です。',unresolved:'未解決の保有状態は未確認です。',
-  exitReview:'決済記録は未確認です。',exitStudyStatus:'Exit比較は未確認です。',config:'口座設定は未確認です。'};
+  exitReview:'決済記録は未確認です。',exitStudyStatus:'Exit比較は未確認です。',exitStudyV2Status:'Exit比較2は未確認です。',config:'口座設定は未確認です。'};
  for(const [id,message] of Object.entries(unknown))el(id).textContent=message;
- for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyExport','tradePreflight'])el(id).disabled=true;
+ for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyExport','exitStudyV2Load','exitStudyV2Export','tradePreflight'])el(id).disabled=true;
  showTradeAccountChoices([]);el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証で再接続してください。';
 }
 function lineList(target,rows){target.replaceChildren();for(const [k,v] of rows){const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=k;b.textContent=v;target.append(a,b);}}
@@ -81,7 +81,7 @@ function show(s){
  el('entryWindow').textContent='新規購入は通常取引終了の60分前で停止。締切後も保有分の売却判断を継続します。'+(a.clock?.entryEndsAt?' 当日の購入締切：'+when(a.clock.entryEndsAt):'');
  el('config').textContent=JSON.stringify({現在の新規購入制限:s.entry_constraints,記録開始時の固定戦略設定:a.policy,ニュース判定方針:s.newsDecisionPolicy,予定イベント判定:a.last_paper_news_risk,設定注記:'新規購入は固定戦略より厳しい60分前の制限を適用。過去の設定・残高・履歴は保持。',コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'EXIT_PLUS5M_V1：保存済み気配のみ・正式損益と分離'},null,2);
  showDiagnostics();
- for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad'])el(id).disabled=false;
+ for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyV2Load'])el(id).disabled=false;
  el('tradePreflight').disabled=tradePreflightBusy;
 }
 async function refresh(){
@@ -307,18 +307,19 @@ function showIndicatorAnalysis(a,history,marketOpen,sampling){
  if(a.scenarios)row('試算は価格予測・期待利益ではありません。IV、将来の売買価格差、約定条件は実相場で確認します。');
 }
 
-let exitStudySnapshot=null,exitStudyAccount=null;
-function showExitStudy(data){
- const root=el('exitStudy');root.replaceChildren();
+let exitStudySnapshot=null,exitStudyAccount=null,exitStudyV2Snapshot=null,exitStudyV2Account=null;
+function showExitStudy(data,suffix=''){
+ const root=el('exitStudy'+suffix);root.replaceChildren();
  const number=v=>v==null?'--':Number(v).toFixed(2);
  const dollars=v=>v==null?'--':'$'+Number(v).toFixed(2);
  const paragraph=text=>{const p=document.createElement('p');p.textContent=text;root.append(p);};
  const table=(headers,rows)=>{const wrap=document.createElement('div');wrap.className='tableWrap';const t=document.createElement('table'),head=document.createElement('thead'),body=document.createElement('tbody'),hr=document.createElement('tr');for(const h of headers){const th=document.createElement('th');th.textContent=h;hr.append(th);}head.append(hr);for(const row of rows){const tr=document.createElement('tr');for(const v of row){const td=document.createElement('td');td.textContent=v;tr.append(td);}body.append(tr);}t.append(head,body);wrap.append(t);root.append(wrap);};
- el('exitStudyStatus').textContent='検証不足 / 記録中 '+(data.active?.length??0)+'件 / 全口座の追跡完了 '+(data.completed_total??0)+'件 / 記録エラー '+(data.errors??0)+'件。自動採用はしません。';
+ el('exitStudy'+suffix+'Status').textContent='検証不足 / 記録中 '+(data.active?.length??0)+'件 / 全口座の追跡完了 '+(data.completed_total??0)+'件 / 記録エラー '+(data.errors??0)+'件。自動採用はしません。';
+ if(suffix==='V2')paragraph((data.spec?.version||'EXIT_STUDY_2')+' / 固定条件ハッシュ '+(data.study_hash||'未記録')+'。旧Exit比較と別の観測・成績です。');
  if(!Object.keys(data.groups||{}).length)paragraph('比較できる完了取引はまだありません。');
  for(const [group,g] of Object.entries(data.groups||{})){
   paragraph(group.split('|')[0]+' / 同一条件の完全観測 '+g.paired_complete+'件 / 観測不足 '+g.partial+'件');
-  table(['Exit案','件数','勝率','平均利益','平均損失','PF','期待値','実現損益DD','平均保有','MFE回収率','+50→損失','早すぎたExit','+50決済との差'],Object.entries(g.candidates||{}).map(([k,m])=>[k+' '+m.label,m.samples,percent(m.win_rate),dollars(m.average_profit),dollars(m.average_loss),number(m.profit_factor),dollars(m.expectancy),dollars(m.max_realized_drawdown_usd),duration(m.average_hold_seconds),percent(m.mfe_capture_ratio),m.reached50_then_loss,m.early_exit_then_additional25pp,dollars(m.delta_vs_plus50_exit_usd)]));
+  table(['Exit案','件数','勝率','平均利益','平均損失','PF','期待値','実現損益DD','平均保有','MFE回収率','+50→損失','早すぎたExit',suffix==='V2'?'費用込み純損益':'+50決済との差'],Object.entries(g.candidates||{}).map(([k,m])=>[k+' '+m.label,m.samples,percent(m.win_rate),dollars(m.average_profit),dollars(m.average_loss),number(m.profit_factor),dollars(m.expectancy),dollars(m.max_realized_drawdown_usd),duration(m.average_hold_seconds),percent(m.mfe_capture_ratio),m.reached50_then_loss,m.early_exit_then_additional25pp,dollars(suffix==='V2'?m.net:m.delta_vs_plus50_exit_usd)]));
   paragraph('上表は同じ取引群だけの比較です。実現損益DDは口座全体のDDではありません。MFE回収率は費用後確定損益÷費用前の最大含み益。');
  }
  for(const [group,book] of Object.entries(data.portfolios||{})){
@@ -339,4 +340,15 @@ el('account').addEventListener('change',()=>{exitStudySnapshot=null;exitStudyAcc
 el('exitStudyExport').addEventListener('click',()=>{
  if(!exitStudySnapshot||exitStudyAccount!==el('account').value)return;
  const url=URL.createObjectURL(new Blob([JSON.stringify(exitStudySnapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='paper-exit-study.json';a.click();URL.revokeObjectURL(url);
+});
+el('exitStudyV2Load').addEventListener('click',async()=>{
+ const button=el('exitStudyV2Load'),account=el('account').value;button.disabled=true;el('exitStudyV2Status').textContent='保存されたExit比較2を読み込み中…';
+ try{const data=await request('exit-study-v2?account='+encodeURIComponent(account));if(el('account').value!==account)return;exitStudyV2Snapshot=data;exitStudyV2Account=account;showExitStudy(data,'V2');el('exitStudyV2Export').disabled=false;}
+ catch(e){if(e.stalePaperRequest)return;el('exitStudyV2Status').textContent=e.message;}
+ finally{button.disabled=!paperConnected;}
+});
+el('account').addEventListener('change',()=>{exitStudyV2Snapshot=null;exitStudyV2Account=null;el('exitStudyV2').replaceChildren();el('exitStudyV2Export').disabled=true;el('exitStudyV2Status').textContent='選択口座が変わりました。「Exit比較2を更新」で読み込んでください。';});
+el('exitStudyV2Export').addEventListener('click',()=>{
+ if(!exitStudyV2Snapshot||exitStudyV2Account!==el('account').value)return;
+ const url=URL.createObjectURL(new Blob([JSON.stringify(exitStudyV2Snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='paper-exit-study-v2.json';a.click();URL.revokeObjectURL(url);
 });
