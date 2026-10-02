@@ -6,6 +6,11 @@ const usd=c=>c==null?'--':new Intl.NumberFormat('ja-JP',{style:'currency',curren
 const percent=n=>n==null?'--':(100*n).toFixed(1)+'%';
 const when=s=>s?new Date(s).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',hour12:false})+' JST':'未取得';
 const duration=s=>s==null?'未確認':Math.max(0,s/60).toFixed(1)+'分';
+const count=n=>Number.isSafeInteger(n)&&n>=0?String(n):'未記録';
+const dollars=n=>n==null?'未算出':'$'+Number(n).toFixed(2);
+const strategyLabels={V64_BASELINE_1:'基準版',V64_TIME_1:'時間考慮版',V65_TREND_RETEST_1:'追加インジ旧版（当日から計算）',V65_TREND_RETEST_2:'追加インジ版2（厳格条件の比較用）',V65_BALANCED_3:'追加インジ版3（バランス検証）',V66_CORE_TREND_1:'独立トレンド版1（PAPER比較）'};
+function accountLabel(key){const [strategy,kind]=String(key).split(':');return (strategyLabels[strategy]||strategy)+' · '+(kind==='STRESS'?'不利な条件':'通常条件');}
+const winRate=m=>!m?.trades||m.win_rate==null?'未算出（決済なし・記録不足）':percent(m.win_rate);
 let paperDiagnostics=null;
 let tradePreflightBusy=false;
 let tradeAccountChoices=[];
@@ -27,17 +32,17 @@ async function request(path,body){
 }
 function showAuthRequired(){
  paperAuthRequired=true;paperConnected=false;clearTimeout(paperTimer);paperToken='';
- paperSnapshot=null;paperDiagnostics=null;exitStudySnapshot=null;exitStudyAccount=null;
- for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy'])el(id).replaceChildren();
+ paperSnapshot=null;paperDiagnostics=null;exitStudySnapshot=null;exitStudyAccount=null;exitStudyV2Snapshot=null;exitStudyV2Account=null;
+ for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy','exitStudyV2'])el(id).replaceChildren();
  for(const id of ['equity','cash','daily','realized','unrealized','fees','dd','uptime'])el(id).textContent='--';
  const unknown={runtime:'管理用認証が必要：PAPER状態は未確認',runtimeDetail:'実注文OFF / 認証付きの稼働状態・口座記録を取得できません。',
   dataMode:'認証付きPAPER状態は未取得',decision:'PAPER状態未確認',reason:'購入・保有・履歴は未確認です。管理用認証で再接続してください。',
   updated:'最終実行 未確認',qualityAt:'判定記録は未確認です。',contract:'保有状態は未確認です。',stats:'取引件数・損益は未確認です。',
   history:'取引履歴は未確認です。',diagnostics:'見送り理由は未確認です。',decisionAnalysis:'購入判断の記録は未確認です。',
-  indicatorAnalysis:'追加インジの判定記録は未確認です。',executionQuality:'約定の記録は未確認です。',unresolved:'未解決の保有状態は未確認です。',
-  exitReview:'決済記録は未確認です。',exitStudyStatus:'Exit比較は未確認です。',config:'口座設定は未確認です。'};
+  indicatorAnalysis:'追加インジの判定記録は未確認です。',entryFunnel:'観測・購入指示・約定の件数は未確認です。',executionQuality:'約定の記録は未確認です。',unresolved:'未解決の保有状態は未確認です。',
+  exitReview:'決済記録は未確認です。',exitStudyStatus:'Exit比較は未確認です。',exitStudyV2Status:'Exit比較2は未確認です。',config:'口座設定は未確認です。'};
  for(const [id,message] of Object.entries(unknown))el(id).textContent=message;
- for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyExport','tradePreflight'])el(id).disabled=true;
+ for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyExport','exitStudyV2Load','exitStudyV2Export','tradePreflight'])el(id).disabled=true;
  showTradeAccountChoices([]);el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証で再接続してください。';
 }
 function lineList(target,rows){target.replaceChildren();for(const [k,v] of rows){const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=k;b.textContent=v;target.append(a,b);}}
@@ -58,23 +63,25 @@ function show(s){
  el('dd').textContent=a.max_drawdown_pct.toFixed(2)+'%';el('uptime').textContent=percent(s.observed_uptime);
  const p=a.position;el('contract').textContent=p?p.contract.optionSymbol+' / '+p.contract.expiration+' / '+p.contract.side+' / Strike '+p.contract.strike:'現在の保有なし';
  lineList(el('position'),p?[['仮想IN価格',p.inPrice==null?'IN待ち':'$'+p.inPrice.toFixed(4)],['現在の決済評価',p.markFresh?'$'+p.markPrice.toFixed(4):'有効気配なし（リスク評価0）'],['IN時刻',when(p.inAt)],['保有時間',duration(a.clock.holdingSec)],['契約の最終取引まで',duration(a.clock.contractRemainingSec)],['戦略の強制OUTまで',duration(a.clock.forceRemainingSec)],['観測した最大含み益',p.mfe_pct==null?'--':p.mfe_pct.toFixed(1)+'%'],['観測した最大含み損',p.mae_pct==null?'--':p.mae_pct.toFixed(1)+'%']]:[]);
- el('comparison').replaceChildren();for(const b of Object.values(s.accounts)){const tr=document.createElement('tr');for(const v of [b.account_id,b.report.summary.trades,usd(b.realized_cents),b.max_drawdown_pct.toFixed(2)+'%',b.unresolved_count]){const td=document.createElement('td');td.textContent=v;tr.append(td);}el('comparison').append(tr);}
+ el('comparison').replaceChildren();for(const b of Object.values(s.accounts)){const tr=document.createElement('tr'),m=b.report.summary;for(const v of [accountLabel(b.account_id),count(m.trades),winRate(m),dollars(m.net),dollars(m.fees),dollars(m.average_profit),dollars(m.average_loss),b.max_drawdown_pct.toFixed(2)+'%',count(b.unresolved_count)]){const td=document.createElement('td');td.textContent=v;tr.append(td);}el('comparison').append(tr);}
+ showEntryFunnel(a.entry_funnel);
  showDecisionAnalysis(a.last_decision_analysis);
- showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen,a.indicator_sampling);
+ showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen,a.core_entry_sampling||a.indicator_sampling);
  if(a.state==='FLAT'&&a.clock?.marketOpen===false)el('decision').textContent='市場時間外・予定休止';
  if(a.state==='FLAT'&&a.clock?.marketOpen&&a.last_indicator_analysis?.decisionClass==='SESSION_WARMUP')el('decision').textContent='寄付き後の形状確認待ち';
  if(a.state==='FLAT'&&a.entries_enabled&&a.clock?.marketOpen&&['SYSTEM_NOT_READY','DATA_ERROR'].includes(a.last_indicator_analysis?.decisionClass))el('decision').textContent=a.last_indicator_analysis.decisionClass==='DATA_ERROR'?'データ異常':'SYSTEM NOT READY：データ準備不足';
  const eq=a.report.execution_quality;
  const seconds=v=>v==null?'未記録':Number(v).toFixed(1)+'秒';
- el('executionQuality').textContent=eq?'仮想INの判定→約定：平均 '+seconds(eq.entry.mean_seconds)+' / 仮想OUT：平均 '+seconds(eq.exit.mean_seconds)+'・最大 '+seconds(eq.exit.max_seconds)+' / 保有中の観測最大間隔 '+seconds(eq.max_observation_gap_seconds)+'。観測間の値動きは不明です。':'約定までの実測時間：記録待ち';
- const m=a.report.summary;el('stats').textContent=m.status+' / '+m.trading_days+'取引日 / 勝率 '+percent(m.win_rate)+' / 平均純損益 '+(m.average_net==null?'--':'$'+m.average_net.toFixed(2))+' / 平均利益 '+(m.average_profit??'--')+' / 平均損失 '+(m.average_loss??'--')+' / PF '+(m.profit_factor==null?'検証不足・損失なし':m.profit_factor.toFixed(2))+' / 最大連敗 '+m.max_losing_streak+' / 稼働中のデータ不足率 '+percent(a.report.missing_rate)+'（新集計 '+(a.report.quality_observations??0)+'回）'+' / 未約定率 '+percent(a.report.unfilled_rate);
+ const delay=(label,d)=>label+'：平均 '+seconds(d?.mean_seconds)+' / 中央値 '+seconds(d?.p50_seconds)+' / 95%点 '+seconds(d?.p95_seconds)+' / 最大 '+seconds(d?.max_seconds)+'（実測 '+count(d?.samples)+'件）';
+ el('executionQuality').textContent=eq?delay('仮想INの判定→約定',eq.entry)+' / '+delay('仮想OUTの判定→約定',eq.exit)+' / 保有中の観測最大間隔 '+seconds(eq.max_observation_gap_seconds)+'。観測間の値動きは不明です。':'約定までの実測時間：記録待ち';
+ const m=a.report.summary;el('stats').textContent=m.status+' / '+m.trading_days+'取引日 / 決済 '+count(m.trades)+'件 / 勝率 '+winRate(m)+' / 費用込み純損益 '+dollars(m.net)+' / 決済費用 '+dollars(m.fees)+' / 平均純損益 '+dollars(m.average_net)+' / 平均利益 '+dollars(m.average_profit)+' / 平均損失 '+dollars(m.average_loss)+' / PF '+(m.profit_factor==null?(m.profit_factor_status==='NO_LOSSES'?'損失なし（未定義）':'未算出（記録不足）'):m.profit_factor.toFixed(2))+' / 最大連敗 '+m.max_losing_streak+' / 稼働中のデータ不足率 '+percent(a.report.missing_rate)+'（新集計 '+count(a.report.quality_observations)+'回）'+' / 未約定率 '+percent(a.report.unfilled_rate);
  el('groups').replaceChildren();for(const [kind,buckets] of Object.entries(a.report.groups)){const h=document.createElement('h3');h.textContent=({time_band:'時間帯',remaining:'残り時間',holding:'保有時間',side:'CALL / PUT',out_reason:'OUT理由',strategy:'戦略版',day:'日次',week:'週次',decision_version:'購入判定の版',entry_code:'購入時のコード版',price_support:'価格条件の一致数',vol_support:'ボラティリティ条件の一致数',indicator_version:'追加インジの戦略版'})[kind]||kind;el('groups').append(h);for(const [name,v] of Object.entries(buckets)){const row=document.createElement('p');row.textContent=name+'：'+v.trades+'件 / $'+v.net.toFixed(2)+' / '+v.status;el('groups').append(row);}}
  el('unresolved').textContent='未解決 '+a.report.unresolved_count+'件 / 全損＋決済費用の保守評価 $'+a.report.unresolved_conservative_loss_usd.toFixed(2)+'。正式損益には未決済のまま残します。';
- el('history').replaceChildren();for(const t of [...a.history].reverse()){const div=document.createElement('div');div.className='trade';div.textContent=t.contract.side+' '+t.contract.strike+' / '+usd(t.net_cents)+' / '+reasonText(t.outReason)+'\n'+when(t.inAt)+' → '+when(t.outAt)+' / 仮想約定';el('history').append(div);}if(!a.history.length)el('history').textContent='決済履歴はまだありません';
+ el('history').replaceChildren();for(const t of [...a.history].reverse()){const div=document.createElement('div');div.className='trade';div.textContent=t.contract.side+' '+t.contract.strike+' / 純損益 '+usd(t.net_cents)+' / 費用 '+usd(t.fees_cents)+' / '+reasonText(t.outReason)+'\n'+when(t.inAt)+' → '+when(t.outAt)+' / 仮想約定 / 購入理由 '+entryBasisText(t.entryIndicators?.entryBasis)+' / 保存確認 '+(t.persisted_at?when(t.persisted_at):'個別約定の保存時刻は未記録');el('history').append(div);}if(!a.history.length)el('history').textContent='決済履歴はまだありません';
  el('entryWindow').textContent='新規購入は通常取引終了の60分前で停止。締切後も保有分の売却判断を継続します。'+(a.clock?.entryEndsAt?' 当日の購入締切：'+when(a.clock.entryEndsAt):'');
  el('config').textContent=JSON.stringify({現在の新規購入制限:s.entry_constraints,記録開始時の固定戦略設定:a.policy,ニュース判定方針:s.newsDecisionPolicy,予定イベント判定:a.last_paper_news_risk,設定注記:'新規購入は固定戦略より厳しい60分前の制限を適用。過去の設定・残高・履歴は保持。',コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'EXIT_PLUS5M_V1：保存済み気配のみ・正式損益と分離'},null,2);
  showDiagnostics();
- for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad'])el(id).disabled=false;
+ for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyV2Load'])el(id).disabled=false;
  el('tradePreflight').disabled=tradePreflightBusy;
 }
 async function refresh(){
@@ -165,6 +172,24 @@ function showDecisionAnalysis(a){
  for(const c of a.costs)row((c.case==='STRESS'?'不利な費用条件':'通常の費用条件')+'・1枚：購入総額 '+usd(c.entryDebitCents)+' / 同じ気配で売却 '+usd(c.unchangedQuoteNetCents)+' / 損益ゼロに必要な売却Bid $'+Number(c.breakEvenBid).toFixed(4)+' / 片道費用 '+usd(c.feePerSideCents)+'・滑り $'+Number(c.slippagePerSide).toFixed(2));
 }
 
+function showEntryFunnel(f){
+ const target=el('entryFunnel');target.replaceChildren();
+ const row=text=>{const p=document.createElement('p');p.textContent=text;target.append(p);};
+ if(!f){row('観測・購入指示・約定の新集計は未記録です。過去の件数をゼロとして補完しません。');return;}
+ const rate=(numerator,denominator)=>Number.isSafeInteger(numerator)&&numerator>=0&&Number.isSafeInteger(denominator)&&denominator>0?percent(numerator/denominator):'未算出';
+ row('集計版 '+(f.version||'未記録')+' / 対象営業日 '+(f.market_date||'未記録')+' / 開始 '+when(f.observed_since)+'。この開始時刻より前の取引とは合算しません。');
+ row('購入可能時間・保有なしの1分観測 '+count(f.eligible_observations)+'回 / 有効データ '+count(f.valid_data_observations)+'回（分母：対象観測 '+count(f.eligible_observations)+'回、'+rate(f.valid_data_observations,f.eligible_observations)+'） / 保有なし・有効データ '+count(f.valid_flat_observations)+'回');
+ row('購入指示 '+count(f.signals)+'件（分母：保有なし・有効データ '+count(f.valid_flat_observations)+'回、'+rate(f.signals,f.valid_flat_observations)+'） / PAPER購入約定 '+count(f.fills)+'件（分母：購入指示 '+count(f.signals)+'件、'+rate(f.fills,f.signals)+'） / 未約定終了 '+count(f.unfilled)+'件（同じ分母、'+rate(f.unfilled,f.signals)+'）');
+ row('重複を除いた5分足×方向の候補 '+count(f.unique_5m_direction_opportunities)+'枠。同じ価格の反復観測、購入指示、約定、決済取引は別の件数です。');
+ const names={SYSTEM_NOT_READY:'データ準備不足',DATA_ERROR:'データ・取得異常',SESSION_WARMUP:'必要な当日形状の準備待ち',NO_TRADE:'相場条件未達',SIGNAL_READY:'購入条件通過',RISK_LIMIT:'資金・損失制限',STRATEGY_REJECTION:'相場・戦略条件未達'};
+ for(const [kind,n] of Object.entries(f.categories||{}))row((names[kind]||kind)+'：'+count(n)+'回');
+ for(const [reason,n] of Object.entries(f.reasons||{}))row('見送り理由 '+reasonText(reason)+'：'+count(n)+'回');
+}
+
+function entryBasisText(value){
+ return ({BASELINE_BUY_PLUS_CORE_TREND_AND_COST_RISK:'通常版80点BUY＋主要トレンド・値幅・費用込み試算',CLOSED_5M_CORE_TREND_AND_COST_RISK:'確定5分足の主要トレンド・値幅・費用込み試算から独立判定'})[value]||value||'旧記録：書き出しで条件の版を確認';
+}
+
 async function runTradePreflight(){
  if(!paperConnected||!paperToken||tradePreflightBusy)return;
  const button=el('tradePreflight'),status=el('tradePreflightStatus'),result=el('tradePreflightResult'),token=paperToken;
@@ -212,31 +237,39 @@ el('connect').addEventListener('click',()=>showTradeAccountChoices([]));
 
 function syncAccounts(accounts){
  const select=el('account'),selected=select.value;
- const labels={V64_BASELINE_1:'基準版',V64_TIME_1:'時間考慮版',V65_TREND_RETEST_1:'追加インジ旧版（当日から計算）',V65_TREND_RETEST_2:'追加インジ版2（厳格条件の比較用）',V65_BALANCED_3:'追加インジ版3（バランス検証）'};
  const known=Array.from(select.options).map(o=>o.value),keys=Object.keys(accounts||{});
  if(known.length===keys.length&&known.every(k=>keys.includes(k)))return;
  select.replaceChildren();
- for(const key of keys){const option=document.createElement('option');option.value=key;const [strategy,kind]=key.split(':');option.textContent=(labels[strategy]||strategy)+' · '+(kind==='STRESS'?'不利な条件':'通常条件');select.append(option);}
- const next=keys.includes('V65_BALANCED_3:STANDARD')?'V65_BALANCED_3:STANDARD':'V65_TREND_RETEST_2:STANDARD';
+ for(const key of keys){const option=document.createElement('option');option.value=key;option.textContent=accountLabel(key);select.append(option);}
+ const next=keys.includes('V66_CORE_TREND_1:STANDARD')?'V66_CORE_TREND_1:STANDARD':keys.includes('V65_BALANCED_3:STANDARD')?'V65_BALANCED_3:STANDARD':'V65_TREND_RETEST_2:STANDARD';
  if(!known.includes(next)&&keys.includes(next))select.value=next;
  else if(keys.includes(selected))select.value=selected;
 }
 function reasonText(value){
+ const parts=String(value||'').replace(/^INDICATOR: /,'');
+ if(parts.includes(' / ')||parts.includes(', '))return parts.split(/ \/ |, /).map(reasonText).join(' / ');
+ const executionNames={CORE_DIRECTION_CONTRACT_UNAVAILABLE:'独立版が選んだ方向の実際の契約候補が未取得',CORE_CANDIDATES_UNAVAILABLE:'CALL・PUTの実際の契約候補がどちらも未取得',BUY_READY:'購入条件を充足（約定とは別）',API_ERROR:'相場APIの取得・接続異常',MARKET_CLOSED:'市場時間外',CALENDAR_UNVERIFIED:'取引カレンダーが未確認',ENTRY_TIME_EXPIRED:'市場終了60分前を過ぎたため新規購入停止',ENTRY_TIME_LOCK:'新規購入の時間外',CONTRACT_DATA_ERROR:'0DTE契約の情報が不足・不一致',NO_LIQUID_CONTRACT:'有効な気配・板数量・契約条件が不足',TRADABILITY_UNVERIFIED:'取引可能状態が未確認',SPY_PRICE_STALE:'SPY最終約定が判定時点の鮮度上限を超過',SPY_QUOTE_STALE:'SPY気配が判定時点の鮮度上限を超過',PRICE_DATA_MISSING:'SPY価格が未取得',SPREAD_TOO_WIDE:'売買価格差が条件上限を超過',BAR_DATA_MISSING:'購入判断に必要な確定足が不足',VOL_DATA_MISSING:'ボラティリティ指標が未取得・古い',OPEN_DATA_MISSING:'当日の始値が未取得',DATA_BLOCK:'購入判断に必要なデータが不足',VALID_NO_EDGE:'データ正常・相場条件未達',DIRECTION_SCORE_BELOW_80:'通常版の方向スコアが80点未満',DIRECTION_CHANGED:'購入方向と取得した契約の方向が不一致',DELTA_UNAVAILABLE:'デルタが未取得',DELTA_INVALID:'デルタの値・方向が不正',DELTA_OUTSIDE_POLICY:'時間帯ごとのデルタ条件未達',LOTTERY_PRICE:'オプション価格が購入下限未満',VWAP_CHASE_LIMIT:'VWAPからの乖離が追いかけ上限を超過',VWAP_DATA_MISSING:'VWAPが未取得',BAR_DATA_MISSING_OR_STALE:'購入判断に必要な足が不足・古い',INDICATORS_UNAVAILABLE:'トレンド指標が未準備'};
+ if(executionNames[parts])return executionNames[parts];
  if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_QUOTE_STALE')return 'オプション気配が判定時点の鮮度上限を超えたため待機';
  if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_BASE_REWARD_INSUFFICIENT')return '通常の費用込み試算で利益幅が損失幅に届きません';
  if(String(value||'').replace(/^INDICATOR: /,'')==='SETUP_WINDOW_WARMUP')return '寄付き後45分の節目・押し戻り形状を確認中';
  if(String(value||'').replace(/^INDICATOR: /,'')==='TREND_SEED_UNAVAILABLE')return 'EMA・ATRの準備に必要な前営業日の確定足が不足';
  if(String(value||'').includes('PREVIOUS_SESSION_LEVELS_UNAVAILABLE'))return String(value).replace('PREVIOUS_SESSION_LEVELS_UNAVAILABLE','前営業日の高値・安値が未取得');
- const names={RVOL_HISTORY_WARMUP:'同じ時間帯の出来高履歴を準備中',EMA_ATR_WARMUP:'確定した5分足を蓄積中',TREND_NOT_ALIGNED:'方向・傾きの一致待ち',ATR_CHASE_LIMIT:'直近の値幅に対して上昇・下落を追いかけすぎ',BREAKOUT_RETEST_NOT_CONFIRMED:'節目突破後の押し戻り・再開を確認できません',BREAKOUT_VOLUME_TOO_LOW:'節目突破時の出来高条件未達',STRUCTURE_RISK_OUTSIDE_ATR_BAND:'撤退地点までの値幅が条件外',INSUFFICIENT_PRICE_REWARD_RISK:'目標までの値幅に対して損失幅が大きい',OPTION_SCENARIOS_UNAVAILABLE:'オプション価格の試算ができません',OPTION_COST_TIME_IV_REWARD_INSUFFICIENT:'時間減価・IV低下・費用を含む試算が条件未達',STRUCTURE_BREAK:'追加版の撤退価格に到達',ATR_TRAIL:'ATRに応じた利益保護',MAX_HOLD:'追加版の保有時間上限',SETUP_ALREADY_TRADED:'同じ節目突破では取引済み',NO_PROGRESS:'保有後に必要な値動きが出ていません',CLOSED_BARS_STALE:'確定した足が古いため待機',SESSION_OPEN_MISSING:'寄付きからの足が不足'};
+ const names={RVOL_HISTORY_WARMUP:'同じ時間帯の出来高履歴を準備中',EMA_ATR_WARMUP:'確定した5分足を蓄積中',TREND_NOT_ALIGNED:'方向・傾きの一致待ち',ATR_CHASE_LIMIT:'直近の値幅に対して上昇・下落を追いかけすぎ',BREAKOUT_RETEST_NOT_CONFIRMED:'節目突破後の押し戻り・再開を確認できません',BREAKOUT_VOLUME_TOO_LOW:'節目突破時の出来高条件未達',STRUCTURE_RISK_OUTSIDE_ATR_BAND:'撤退地点までの値幅が条件外',INSUFFICIENT_PRICE_REWARD_RISK:'目標までの値幅に対して損失幅が大きい',OPTION_SCENARIOS_UNAVAILABLE:'オプション価格の試算ができません',OPTION_COST_TIME_IV_REWARD_INSUFFICIENT:'時間減価・IV低下・費用を含む試算が条件未達',STRUCTURE_BREAK:'追加版の撤退価格に到達',ATR_TRAIL:'ATRに応じた利益保護',MAX_HOLD:'追加版の保有時間上限',SETUP_ALREADY_TRADED:'同じ節目突破では取引済み',NO_PROGRESS:'保有後に必要な値動きが出ていません',CLOSED_BARS_STALE:'確定した足が古いため待機',SESSION_OPEN_MISSING:'寄付きからの足が不足',CORE_DIRECTION_UNAVAILABLE:'主要トレンドからCALL・PUTの方向が決まりません',CORE_DIRECTION_AMBIGUOUS:'CALL・PUTの方向条件が競合しています',DIRECTION_OR_SPOT_UNAVAILABLE:'方向またはSPY価格が未取得',OPTION_CONTRACT_UNAVAILABLE:'判定方向のオプション契約候補が未取得',CONTRACT_SIDE_MISMATCH:'購入方向と契約のCALL・PUTが一致しません',ENTRY_CANCELLED_OR_EXPIRED:'購入候補の条件消失・停止・待機期限切れ',PROCESSING_DELAY_OR_NO_NEW_QUOTE:'処理待機中、または判断後の新しい気配が未取得',VIRTUAL_FILL_ASK_PLUS_SLIP:'有効なAskと仮定の滑りでPAPER購入約定',INDICATOR_PASS:'追加条件を充足',NO_BASELINE_BUY:'通常版の購入条件未達',NO_CLOSED_BARS:'確定した足が未取得',RVOL_HISTORY_FETCH_FAILED:'出来高履歴の取得に失敗',TREND_SEED_FETCH_FAILED:'EMA・ATR用の前営業日履歴の取得に失敗'};
  const key=String(value||'').replace(/^INDICATOR: /,'');return names[key]||reasons[value]||value||'記録待ち';
 }
 function showIndicatorAnalysis(a,history,marketOpen,sampling){
  const target=el('indicatorAnalysis');target.replaceChildren();
  const row=text=>{const p=document.createElement('p');p.textContent=text;target.append(p);};
  const num=n=>n==null?'未取得':Number(n).toFixed(3);
+ const independent=a?.strategy==='V66_CORE_TREND_1';
  if(sampling){
-  row('検証データ '+sampling.session+'：判定 '+sampling.observations+'回 / 確定5分足×方向 '+sampling.unique5mWindows+'枠');
-  row('基準版BUY '+sampling.baselineBuyObservations+'回 / 基準版と追加条件の同時通過 '+sampling.combinedSignalObservations+'回・重複を除く '+sampling.uniqueCombinedSignalWindows+'枠（約定件数ではありません）');
+  row('検証データ '+sampling.session+'：判定 '+count(sampling.observations)+'回'+(independent?'':' / 確定5分足×方向 '+count(sampling.unique5mWindows)+'枠'));
+  if(independent){
+   row('参考の基準版BUY '+count(sampling.baselineBuyObservations)+'回 / 独立条件通過 '+count(sampling.independentBuyObservations)+'回・重複を除く '+count(sampling.uniqueBuyWindows)+'枠（約定件数ではありません）');
+   row('通常版がBUYにしなかった追加候補 '+count(sampling.additionalBuyObservations)+'回。実際の約定・決済損益は別の件数で確認します。');
+   row('通常版80点BUYは比較用に記録します。独立版の購入条件には重ねません。');
+  }else row('基準版BUY '+sampling.baselineBuyObservations+'回 / 基準版と追加条件の同時通過 '+sampling.combinedSignalObservations+'回・重複を除く '+sampling.uniqueCombinedSignalWindows+'枠（約定件数ではありません）');
   row('見送りも保存します。同じ相場を繰り返し観測した回数を、独立した取引件数として扱いません。');
   const names={coreTrend:'VWAP・EMAの方向',trendSupport:'傾きの補助確認',chase:'ATRの追いかけ制限',priceRewardRisk:'SPYの利益損失幅',baseOptionRewardRisk:'通常の費用込み試算',retest:'押し戻り確認',breakoutVolume:'突破時の出来高',allFiveTrend:'従来の方向5条件',ivStressRewardRisk:'IV低下の厳格試算'};
   for(const kind of ['requiredChecks','studyChecks'])for(const [key,c] of Object.entries(sampling[kind]||{}))row((kind==='requiredChecks'?'必須：':'比較用：')+(names[key]||key)+' / 通過 '+c.passCount+'・未達 '+c.failCount+'・未評価 '+c.unavailableCount);
@@ -257,11 +290,13 @@ function showIndicatorAnalysis(a,history,marketOpen,sampling){
  }
  if(!a){row('選択中の口座には追加版の判定記録がありません。口座欄に追加インジ版があれば選択してください。');return;}
  if(a.strategy==='V65_BALANCED_3')row('バランス検証版：基準版80点以上＋主要トレンド・値幅・通常の費用込み試算が必須。押し戻り、出来高、IV低下試算は比較用に記録します。撤退幅はATR1倍。収益性は未検証です。');
+ if(independent)row('独立トレンド版1：VWAP・EMAからCALL・PUTの方向を選び、追いかけ制限・利益損失幅・通常の費用込み試算を確認。基準版の80点BUYとは独立したPAPER口座です。既存版と資金・履歴を分けて比較し、収益性は未検証です。');
+ if(a.entryBasis)row('購入判定の根拠：'+entryBasisText(a.entryBasis));
  const f=a.features||{},r=a.studyLabels?.matched?.rvol||f.breakoutRvol||{};
  if(a.decisionClass)row('追加インジの判定区分：'+(({SESSION_WARMUP:'寄付き後の形状確認待ち（予定された待機）',SYSTEM_NOT_READY:'SYSTEM NOT READY：データ準備不足',DATA_ERROR:'DATA ERROR：計算・入力エラー',NO_TRADE:'NO TRADE：データ正常・相場条件未達',SIGNAL_READY:'追加条件を充足'})[a.decisionClass]||a.decisionClass));
  if(f.warmupUntil)row('形状を判定できる最短時刻 '+when(f.warmupUntil)+'。データ・売買条件の通過は別途必要です。');
  if(f.trendSeed)row('EMA・ATRの準備：前営業日 '+f.trendSeed.date+' の確定5分足 '+f.trendSeed.bars+'本を使用。VWAP・寄り付き高安・押し戻りは当日のみ。');
- row('判定時点 '+when(a.observedAt)+' / '+(a.status==='PASS'?'追加条件を充足（約定とは別）':(a.reasons||[]).map(reasonText).join(' / ')));
+ row('判定時点 '+when(a.observedAt)+' / '+(a.status==='PASS'?(independent?'独立版の購入条件を充足（約定とは別）':'追加条件を充足（約定とは別）'):(a.reasons||[]).map(reasonText).join(' / ')));
  row('確定5分足 '+(f.closed5mCount??0)+'本 / 最終足の確定 '+when(f.barCloseAt));
  row('VWAP '+num(f.vwap)+' / EMA9 '+num(f.ema9)+' / EMA21 '+num(f.ema21)+' / ATR14 '+num(f.atr14));
  row((a.strategy==='V65_BALANCED_3'&&!a.studyLabels?.matched?'参考5分足の相対出来高 ':'節目突破時の相対出来高 ')+(r.value==null?'未準備':num(r.value)+'倍')+' / 比較履歴 '+(r.samples??'未確認')+'営業日・必要 '+(r.requiredSamples??5)+'営業日 / 米東部 '+(r.slotET||'未確認')+' の同一5分枠');
@@ -272,18 +307,19 @@ function showIndicatorAnalysis(a,history,marketOpen,sampling){
  if(a.scenarios)row('試算は価格予測・期待利益ではありません。IV、将来の売買価格差、約定条件は実相場で確認します。');
 }
 
-let exitStudySnapshot=null,exitStudyAccount=null;
-function showExitStudy(data){
- const root=el('exitStudy');root.replaceChildren();
+let exitStudySnapshot=null,exitStudyAccount=null,exitStudyV2Snapshot=null,exitStudyV2Account=null;
+function showExitStudy(data,suffix=''){
+ const root=el('exitStudy'+suffix);root.replaceChildren();
  const number=v=>v==null?'--':Number(v).toFixed(2);
  const dollars=v=>v==null?'--':'$'+Number(v).toFixed(2);
  const paragraph=text=>{const p=document.createElement('p');p.textContent=text;root.append(p);};
  const table=(headers,rows)=>{const wrap=document.createElement('div');wrap.className='tableWrap';const t=document.createElement('table'),head=document.createElement('thead'),body=document.createElement('tbody'),hr=document.createElement('tr');for(const h of headers){const th=document.createElement('th');th.textContent=h;hr.append(th);}head.append(hr);for(const row of rows){const tr=document.createElement('tr');for(const v of row){const td=document.createElement('td');td.textContent=v;tr.append(td);}body.append(tr);}t.append(head,body);wrap.append(t);root.append(wrap);};
- el('exitStudyStatus').textContent='検証不足 / 記録中 '+(data.active?.length??0)+'件 / 全口座の追跡完了 '+(data.completed_total??0)+'件 / 記録エラー '+(data.errors??0)+'件。自動採用はしません。';
+ el('exitStudy'+suffix+'Status').textContent='検証不足 / 記録中 '+(data.active?.length??0)+'件 / 全口座の追跡完了 '+(data.completed_total??0)+'件 / 記録エラー '+(data.errors??0)+'件。自動採用はしません。';
+ if(suffix==='V2')paragraph((data.spec?.version||'EXIT_STUDY_2')+' / 固定条件ハッシュ '+(data.study_hash||'未記録')+'。旧Exit比較と別の観測・成績です。');
  if(!Object.keys(data.groups||{}).length)paragraph('比較できる完了取引はまだありません。');
  for(const [group,g] of Object.entries(data.groups||{})){
   paragraph(group.split('|')[0]+' / 同一条件の完全観測 '+g.paired_complete+'件 / 観測不足 '+g.partial+'件');
-  table(['Exit案','件数','勝率','平均利益','平均損失','PF','期待値','実現損益DD','平均保有','MFE回収率','+50→損失','早すぎたExit','+50決済との差'],Object.entries(g.candidates||{}).map(([k,m])=>[k+' '+m.label,m.samples,percent(m.win_rate),dollars(m.average_profit),dollars(m.average_loss),number(m.profit_factor),dollars(m.expectancy),dollars(m.max_realized_drawdown_usd),duration(m.average_hold_seconds),percent(m.mfe_capture_ratio),m.reached50_then_loss,m.early_exit_then_additional25pp,dollars(m.delta_vs_plus50_exit_usd)]));
+  table(['Exit案','件数','勝率','平均利益','平均損失','PF','期待値','実現損益DD','平均保有','MFE回収率','+50→損失','早すぎたExit',suffix==='V2'?'費用込み純損益':'+50決済との差'],Object.entries(g.candidates||{}).map(([k,m])=>[k+' '+m.label,m.samples,percent(m.win_rate),dollars(m.average_profit),dollars(m.average_loss),number(m.profit_factor),dollars(m.expectancy),dollars(m.max_realized_drawdown_usd),duration(m.average_hold_seconds),percent(m.mfe_capture_ratio),m.reached50_then_loss,m.early_exit_then_additional25pp,dollars(suffix==='V2'?m.net:m.delta_vs_plus50_exit_usd)]));
   paragraph('上表は同じ取引群だけの比較です。実現損益DDは口座全体のDDではありません。MFE回収率は費用後確定損益÷費用前の最大含み益。');
  }
  for(const [group,book] of Object.entries(data.portfolios||{})){
@@ -304,4 +340,15 @@ el('account').addEventListener('change',()=>{exitStudySnapshot=null;exitStudyAcc
 el('exitStudyExport').addEventListener('click',()=>{
  if(!exitStudySnapshot||exitStudyAccount!==el('account').value)return;
  const url=URL.createObjectURL(new Blob([JSON.stringify(exitStudySnapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='paper-exit-study.json';a.click();URL.revokeObjectURL(url);
+});
+el('exitStudyV2Load').addEventListener('click',async()=>{
+ const button=el('exitStudyV2Load'),account=el('account').value;button.disabled=true;el('exitStudyV2Status').textContent='保存されたExit比較2を読み込み中…';
+ try{const data=await request('exit-study-v2?account='+encodeURIComponent(account));if(el('account').value!==account)return;exitStudyV2Snapshot=data;exitStudyV2Account=account;showExitStudy(data,'V2');el('exitStudyV2Export').disabled=false;}
+ catch(e){if(e.stalePaperRequest)return;el('exitStudyV2Status').textContent=e.message;}
+ finally{button.disabled=!paperConnected;}
+});
+el('account').addEventListener('change',()=>{exitStudyV2Snapshot=null;exitStudyV2Account=null;el('exitStudyV2').replaceChildren();el('exitStudyV2Export').disabled=true;el('exitStudyV2Status').textContent='選択口座が変わりました。「Exit比較2を更新」で読み込んでください。';});
+el('exitStudyV2Export').addEventListener('click',()=>{
+ if(!exitStudyV2Snapshot||exitStudyV2Account!==el('account').value)return;
+ const url=URL.createObjectURL(new Blob([JSON.stringify(exitStudyV2Snapshot,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='paper-exit-study-v2.json';a.click();URL.revokeObjectURL(url);
 });

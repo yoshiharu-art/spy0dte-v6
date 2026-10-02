@@ -1,8 +1,12 @@
-name: PAPER rebound clarity verification
+name: PAPER comparison verification
 on:
   push:
     branches:
-      - fix/paper-rebound-clarity-20261001
+      - main
+      - fix/paper-improvement-20261002
+  pull_request:
+    branches:
+      - main
 permissions:
   contents: read
 jobs:
@@ -26,7 +30,7 @@ jobs:
         run: |
           for test_file in test_*.cjs; do
             case "$test_file" in
-              test_trial.cjs|test_paper.cjs|test_retry.cjs|test_frontend_clarity.cjs) continue ;;
+              test_trial.cjs|test_paper.cjs|test_retry.cjs|test_frontend_clarity.cjs|test_core_comparison.cjs) continue ;;
             esac
             node "$test_file"
           done
