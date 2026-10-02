@@ -66,7 +66,7 @@ function show(s){
  el('comparison').replaceChildren();for(const b of Object.values(s.accounts)){const tr=document.createElement('tr'),m=b.report.summary;for(const v of [accountLabel(b.account_id),count(m.trades),winRate(m),dollars(m.net),dollars(m.fees),dollars(m.average_profit),dollars(m.average_loss),b.max_drawdown_pct.toFixed(2)+'%',count(b.unresolved_count)]){const td=document.createElement('td');td.textContent=v;tr.append(td);}el('comparison').append(tr);}
  showEntryFunnel(a.entry_funnel);
  showDecisionAnalysis(a.last_decision_analysis);
- showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen,a.indicator_sampling);
+ showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen,a.core_entry_sampling||a.indicator_sampling);
  if(a.state==='FLAT'&&a.clock?.marketOpen===false)el('decision').textContent='市場時間外・予定休止';
  if(a.state==='FLAT'&&a.clock?.marketOpen&&a.last_indicator_analysis?.decisionClass==='SESSION_WARMUP')el('decision').textContent='寄付き後の形状確認待ち';
  if(a.state==='FLAT'&&a.entries_enabled&&a.clock?.marketOpen&&['SYSTEM_NOT_READY','DATA_ERROR'].includes(a.last_indicator_analysis?.decisionClass))el('decision').textContent=a.last_indicator_analysis.decisionClass==='DATA_ERROR'?'データ異常':'SYSTEM NOT READY：データ準備不足';
@@ -177,17 +177,17 @@ function showEntryFunnel(f){
  const row=text=>{const p=document.createElement('p');p.textContent=text;target.append(p);};
  if(!f){row('観測・購入指示・約定の新集計は未記録です。過去の件数をゼロとして補完しません。');return;}
  const rate=(numerator,denominator)=>Number.isSafeInteger(numerator)&&numerator>=0&&Number.isSafeInteger(denominator)&&denominator>0?percent(numerator/denominator):'未算出';
- row('集計版 '+(f.version||'未記録')+' / 開始 '+when(f.observed_since)+'。この開始時刻より前の取引とは合算しません。');
- row('購入可能時間の観測 '+count(f.eligible_observations)+'回 / 有効データ '+count(f.valid_data_observations)+'回（分母：対象観測 '+count(f.eligible_observations)+'回、'+rate(f.valid_data_observations,f.eligible_observations)+'） / 保有なし・有効データ '+count(f.valid_flat_observations)+'回');
+ row('集計版 '+(f.version||'未記録')+' / 対象営業日 '+(f.market_date||'未記録')+' / 開始 '+when(f.observed_since)+'。この開始時刻より前の取引とは合算しません。');
+ row('購入可能時間・保有なしの1分観測 '+count(f.eligible_observations)+'回 / 有効データ '+count(f.valid_data_observations)+'回（分母：対象観測 '+count(f.eligible_observations)+'回、'+rate(f.valid_data_observations,f.eligible_observations)+'） / 保有なし・有効データ '+count(f.valid_flat_observations)+'回');
  row('購入指示 '+count(f.signals)+'件（分母：保有なし・有効データ '+count(f.valid_flat_observations)+'回、'+rate(f.signals,f.valid_flat_observations)+'） / PAPER購入約定 '+count(f.fills)+'件（分母：購入指示 '+count(f.signals)+'件、'+rate(f.fills,f.signals)+'） / 未約定終了 '+count(f.unfilled)+'件（同じ分母、'+rate(f.unfilled,f.signals)+'）');
  row('重複を除いた5分足×方向の候補 '+count(f.unique_5m_direction_opportunities)+'枠。同じ価格の反復観測、購入指示、約定、決済取引は別の件数です。');
- const names={SYSTEM_NOT_READY:'データ準備不足',DATA_ERROR:'データ・取得異常',SESSION_WARMUP:'必要な当日形状の準備待ち',NO_TRADE:'相場条件未達',SIGNAL_READY:'購入条件通過',SYSTEM:'システム都合',MARKET_CONDITION:'相場条件',RISK:'資金・損失制限'};
+ const names={SYSTEM_NOT_READY:'データ準備不足',DATA_ERROR:'データ・取得異常',SESSION_WARMUP:'必要な当日形状の準備待ち',NO_TRADE:'相場条件未達',SIGNAL_READY:'購入条件通過',RISK_LIMIT:'資金・損失制限',STRATEGY_REJECTION:'相場・戦略条件未達'};
  for(const [kind,n] of Object.entries(f.categories||{}))row((names[kind]||kind)+'：'+count(n)+'回');
  for(const [reason,n] of Object.entries(f.reasons||{}))row('見送り理由 '+reasonText(reason)+'：'+count(n)+'回');
 }
 
 function entryBasisText(value){
- return ({BASELINE_BUY_PLUS_CORE_TREND_AND_COST_RISK:'通常版80点BUY＋主要トレンド・値幅・費用込み試算',CORE_TREND_AND_COST_RISK:'主要トレンド・値幅・費用込み試算から独立判定',INDEPENDENT_CORE_TREND_AND_COST_RISK:'主要トレンド・値幅・費用込み試算から独立判定',CORE_TREND_INDEPENDENT:'主要トレンド・値幅・費用込み試算から独立判定'})[value]||value||'旧記録：書き出しで条件の版を確認';
+ return ({BASELINE_BUY_PLUS_CORE_TREND_AND_COST_RISK:'通常版80点BUY＋主要トレンド・値幅・費用込み試算',CLOSED_5M_CORE_TREND_AND_COST_RISK:'確定5分足の主要トレンド・値幅・費用込み試算から独立判定'})[value]||value||'旧記録：書き出しで条件の版を確認';
 }
 
 async function runTradePreflight(){
@@ -246,6 +246,10 @@ function syncAccounts(accounts){
  else if(keys.includes(selected))select.value=selected;
 }
 function reasonText(value){
+ const parts=String(value||'').replace(/^INDICATOR: /,'');
+ if(parts.includes(' / ')||parts.includes(', '))return parts.split(/ \/ |, /).map(reasonText).join(' / ');
+ const executionNames={CORE_DIRECTION_CONTRACT_UNAVAILABLE:'独立版が選んだ方向の実際の契約候補が未取得',CORE_CANDIDATES_UNAVAILABLE:'CALL・PUTの実際の契約候補がどちらも未取得',BUY_READY:'購入条件を充足（約定とは別）',API_ERROR:'相場APIの取得・接続異常',MARKET_CLOSED:'市場時間外',CALENDAR_UNVERIFIED:'取引カレンダーが未確認',ENTRY_TIME_EXPIRED:'市場終了60分前を過ぎたため新規購入停止',ENTRY_TIME_LOCK:'新規購入の時間外',CONTRACT_DATA_ERROR:'0DTE契約の情報が不足・不一致',NO_LIQUID_CONTRACT:'有効な気配・板数量・契約条件が不足',TRADABILITY_UNVERIFIED:'取引可能状態が未確認',SPY_PRICE_STALE:'SPY最終約定が判定時点の鮮度上限を超過',SPY_QUOTE_STALE:'SPY気配が判定時点の鮮度上限を超過',PRICE_DATA_MISSING:'SPY価格が未取得',SPREAD_TOO_WIDE:'売買価格差が条件上限を超過',BAR_DATA_MISSING:'購入判断に必要な確定足が不足',VOL_DATA_MISSING:'ボラティリティ指標が未取得・古い',OPEN_DATA_MISSING:'当日の始値が未取得',DATA_BLOCK:'購入判断に必要なデータが不足',VALID_NO_EDGE:'データ正常・相場条件未達',DIRECTION_SCORE_BELOW_80:'通常版の方向スコアが80点未満',DIRECTION_CHANGED:'購入方向と取得した契約の方向が不一致',DELTA_UNAVAILABLE:'デルタが未取得',DELTA_INVALID:'デルタの値・方向が不正',DELTA_OUTSIDE_POLICY:'時間帯ごとのデルタ条件未達',LOTTERY_PRICE:'オプション価格が購入下限未満',VWAP_CHASE_LIMIT:'VWAPからの乖離が追いかけ上限を超過',VWAP_DATA_MISSING:'VWAPが未取得',BAR_DATA_MISSING_OR_STALE:'購入判断に必要な足が不足・古い',INDICATORS_UNAVAILABLE:'トレンド指標が未準備'};
+ if(executionNames[parts])return executionNames[parts];
  if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_QUOTE_STALE')return 'オプション気配が判定時点の鮮度上限を超えたため待機';
  if(String(value||'').replace(/^INDICATOR: /,'')==='OPTION_BASE_REWARD_INSUFFICIENT')return '通常の費用込み試算で利益幅が損失幅に届きません';
  if(String(value||'').replace(/^INDICATOR: /,'')==='SETUP_WINDOW_WARMUP')return '寄付き後45分の節目・押し戻り形状を確認中';
@@ -260,9 +264,10 @@ function showIndicatorAnalysis(a,history,marketOpen,sampling){
  const num=n=>n==null?'未取得':Number(n).toFixed(3);
  const independent=a?.strategy==='V66_CORE_TREND_1';
  if(sampling){
-  row('検証データ '+sampling.session+'：判定 '+sampling.observations+'回 / 確定5分足×方向 '+sampling.unique5mWindows+'枠');
+  row('検証データ '+sampling.session+'：判定 '+count(sampling.observations)+'回'+(independent?'':' / 確定5分足×方向 '+count(sampling.unique5mWindows)+'枠'));
   if(independent){
-   row('参考の基準版BUY '+count(sampling.baselineBuyObservations)+'回 / 独立条件通過 '+count(sampling.independentSignalObservations)+'回・重複を除く '+count(sampling.uniqueIndependentSignalWindows)+'枠（約定件数ではありません）');
+   row('参考の基準版BUY '+count(sampling.baselineBuyObservations)+'回 / 独立条件通過 '+count(sampling.independentBuyObservations)+'回・重複を除く '+count(sampling.uniqueBuyWindows)+'枠（約定件数ではありません）');
+   row('通常版がBUYにしなかった追加候補 '+count(sampling.additionalBuyObservations)+'回。実際の約定・決済損益は別の件数で確認します。');
    row('通常版80点BUYは比較用に記録します。独立版の購入条件には重ねません。');
   }else row('基準版BUY '+sampling.baselineBuyObservations+'回 / 基準版と追加条件の同時通過 '+sampling.combinedSignalObservations+'回・重複を除く '+sampling.uniqueCombinedSignalWindows+'枠（約定件数ではありません）');
   row('見送りも保存します。同じ相場を繰り返し観測した回数を、独立した取引件数として扱いません。');

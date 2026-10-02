@@ -19,8 +19,10 @@ core.entry_funnel={version:'entry-funnel-1',observed_since:'2026-10-02T13:30:00Z
  eligible_observations:100,valid_data_observations:70,valid_flat_observations:60,
  signals:6,fills:4,unfilled:1,unique_5m_direction_opportunities:3,
  categories:{SYSTEM_NOT_READY:20,NO_TRADE:50},reasons:{OPTION_CONTRACT_UNAVAILABLE:2}};
-core.last_indicator_analysis={strategy:'V66_CORE_TREND_1',entryBasis:'INDEPENDENT_CORE_TREND_AND_COST_RISK',
+core.last_indicator_analysis={strategy:'V66_CORE_TREND_1',entryBasis:'CLOSED_5M_CORE_TREND_AND_COST_RISK',
  observedAt:'2026-10-02T14:00:00Z',decisionClass:'SIGNAL_READY',status:'PASS',features:{},reasons:[]};
+core.core_entry_sampling={session:'2026-10-02',observations:100,baselineBuyObservations:3,
+ independentBuyObservations:6,additionalBuyObservations:4,uniqueBuyWindows:3};
 core.clock.marketOpen=true;
 core.report.execution_quality={entry:{samples:4,mean_seconds:.25,p50_seconds:.2,p95_seconds:.4,max_seconds:.5},
  exit:{samples:1,mean_seconds:1,p50_seconds:1,p95_seconds:1,max_seconds:1},max_observation_gap_seconds:60};
@@ -31,6 +33,9 @@ run("el('account').value='V66_CORE_TREND_1:STANDARD';show(snapshot)");
 assert.match(document.getElementById('account').options.find(o=>o.value===core.account_id).textContent,/独立トレンド版1.*通常条件/);
 assert.match(document.getElementById('account').options.find(o=>o.value===stress.account_id).textContent,/独立トレンド版1.*不利な条件/);
 assert.match(text('indicatorAnalysis'),/基準版の80点BUYとは独立したPAPER口座/);
+assert.match(text('indicatorAnalysis'),/独立条件通過 6回・重複を除く 3枠/);
+assert.match(text('indicatorAnalysis'),/追加候補 4回/);
+assert.match(run("reasonText('CORE_DIRECTION_CONTRACT_UNAVAILABLE / DELTA_OUTSIDE_POLICY')"),/選んだ方向の実際の契約候補が未取得.*時間帯ごとのデルタ条件未達/);
 assert.match(text('entryFunnel'),/観測 100回.*有効データ 70回.*70.0%/);
 assert.match(text('entryFunnel'),/購入指示 6件.*分母：保有なし・有効データ 60回、10.0%/);
 assert.match(text('entryFunnel'),/PAPER購入約定 4件.*分母：購入指示 6件、66.7%/);
