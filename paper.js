@@ -2,21 +2,55 @@
 const PAPER_API='https://spy0dte-live-backend-v2.vercel.app/api/paper/';
 let paperToken='',paperSnapshot=null,paperTimer=null,paperBusy=false,paperConnected=false,paperAuthRequired=false;
 const el=id=>document.getElementById(id);
-const usd=c=>c==null?'--':new Intl.NumberFormat('ja-JP',{style:'currency',currency:'USD'}).format(c/100);
-const percent=n=>n==null?'--':(100*n).toFixed(1)+'%';
+const usd=c=>typeof c!=='number'||!Number.isFinite(c)?'未取得':new Intl.NumberFormat('ja-JP',{style:'currency',currency:'USD'}).format(c/100);
+const percent=n=>typeof n!=='number'||!Number.isFinite(n)?'未取得':(100*n).toFixed(1)+'%';
 const when=s=>s?new Date(s).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',hour12:false})+' JST':'未取得';
 const duration=s=>s==null?'未確認':Math.max(0,s/60).toFixed(1)+'分';
 const count=n=>Number.isSafeInteger(n)&&n>=0?String(n):'未記録';
-const dollars=n=>n==null?'未算出':'$'+Number(n).toFixed(2);
-const strategyLabels={V64_BASELINE_1:'基準版',V64_TIME_1:'時間考慮版',V65_TREND_RETEST_1:'追加インジ旧版（当日から計算）',V65_TREND_RETEST_2:'追加インジ版2（厳格条件の比較用）',V65_BALANCED_3:'追加インジ版3（バランス検証）',V66_CORE_TREND_1:'独立トレンド版1（PAPER比較）'};
-function accountLabel(key){const [strategy,kind]=String(key).split(':');return (strategyLabels[strategy]||strategy)+' · '+(kind==='STRESS'?'不利な条件':'通常条件');}
-const winRate=m=>!m?.trades||m.win_rate==null?'未算出（決済なし・記録不足）':percent(m.win_rate);
+const dollars=n=>typeof n!=='number'||!Number.isFinite(n)?'未取得':'$'+n.toFixed(2);
+const strategyLabels={V64_BASELINE_1:'通常版',V64_TIME_1:'時間版',V65_TREND_RETEST_1:'追加インジ1（当日から計算）',V65_TREND_RETEST_2:'追加インジ2（厳格条件の比較用）',V65_BALANCED_3:'追加インジ3（バランス検証）',V66_CORE_TREND_1:'独立判定版V66'};
+function accountLabel(key){const [strategy,kind]=String(key).split(':');return (strategyLabels[strategy]||strategy)+' · '+(kind||'条件未取得');}
+const MAIN_ACCOUNT_IDS=['V64_BASELINE_1:STANDARD','V66_CORE_TREND_1:STANDARD'];
+let paperViewedSecondaryAccount=null;
+const winRate=m=>m?.trades===0?'未算出（決済なし）':m?.win_rate==null?'未取得':percent(m.win_rate);
 const mixedConfiguration=report=>report?.configuration?.scope==='MIXED_OR_UNRECORDED_CONFIG_REFERENCE_ONLY';
+function accountGroup(a,id=a?.account_id){return a?.account_management?.group||(MAIN_ACCOUNT_IDS.includes(id)?'MAIN':String(id).endsWith(':STRESS')?'AUXILIARY':'RETIRED');}
+function accountHasWork(a){return !!a?.position||!!a?.pending_order||!!a?.pending_entry||!!a?.pending_exit||['IN_PENDING','OUT_PENDING'].includes(a?.state);}
+function accountEntryState(a){
+ if(a?.risk_halted||a?.daily_halted)return 'リスク停止中（停止設定を保持）';
+ if(a?.entries_enabled===true)return a.account_management?.entry_retired?'要確認：休止設定と新規購入許可が不一致':'新規購入判定の対象（時間・鮮度・リスク制限を適用）';
+ return a?.entries_enabled===false?'新規購入停止中':'新規購入の許可状態は未取得';
+}
+function accountManagementRows(a){
+ const m=a?.account_management;
+ return [['口座ID',a.account_id],['新規購入',accountEntryState(a)],['口座整理',m?(m.entry_retired?'新規購入を休止済み':'主比較として保持'):'未整理（保存された整理設定は未取得）'],['停止理由',m?.reason?reasonText(m.reason):a.entries_enabled===false?reasonText(a.last_reason):'停止の記録なし'],['累積・当日のリスク停止',a.risk_halted===true||a.daily_halted===true?'停止中':a.risk_halted===false&&a.daily_halted===false?'停止なし':'未取得'],['最終稼働日時',when(m?.last_active_at)],['新規購入の休止日時',when(m?.stopped_at)],['未処理注文の照合日時',when(m?.pending_reconciled_at)],['保有・処理待ち',accountHasWork(a)?(statusNames[a.state]||a.state||'確認中')+'／既存の出口管理を継続':'保有・処理待ちなし'],['整理設定の保存元',m?'認証付きサーバーstatus':'未取得']];
+}
+function selectPaperAccount(id){
+ if(!paperSnapshot?.accounts?.[id])return;
+ paperViewedSecondaryAccount=MAIN_ACCOUNT_IDS.includes(id)?null:id;syncAccounts(paperSnapshot.accounts);el('account').value=id;
+ if(typeof el('account').dispatchEvent==='function')el('account').dispatchEvent(new Event('change'));else show(paperSnapshot);
+}
+function showAccountOrganization(s){
+ const buckets={MAIN:el('mainAccounts'),RETIRED:el('retiredAccounts'),AUXILIARY:el('auxiliaryAccounts')};
+ for(const target of Object.values(buckets))target.replaceChildren();
+ for(const [id,a] of Object.entries(s.accounts||{})){
+  const group=accountGroup(a,id),target=buckets[group]||buckets.RETIRED,card=document.createElement('article'),title=document.createElement('h3'),list=document.createElement('dl'),button=document.createElement('button');
+  card.className='accountSummary';title.textContent=accountLabel(id);lineList(list,accountManagementRows({...a,account_id:id}));button.textContent='この口座の状態・履歴を見る';button.addEventListener('click',()=>selectPaperAccount(id));card.append(title,list,button);target.append(card);
+ }
+ for(const id of MAIN_ACCOUNT_IDS)if(!s.accounts?.[id]){const p=document.createElement('p');p.className='warning';p.textContent=accountLabel(id)+'：既存口座を未取得。新しい口座は追加していません。';buckets.MAIN.append(p);}
+ for(const [group,panel] of [['RETIRED','retiredAccountsPanel'],['AUXILIARY','auxiliaryAccountsPanel']]){
+  const rows=Object.entries(s.accounts||{}).filter(([id,a])=>accountGroup(a,id)===group),pending=rows.filter(([,a])=>accountHasWork(a)).length;
+  if(pending>0)el(panel).open=true;el(group==='RETIRED'?'retiredAccountsCount':'auxiliaryAccountsCount').textContent=rows.length+'口座'+(pending?'／保有・処理待ち '+pending+'口座（出口管理を継続）':'');
+ }
+ const organization=s.accountOrganization;
+ el('organizationStatus').textContent=organization?.persisted===true?'認証付きサーバーの保存済み整理設定を表示／整理日時 '+when(organization.activated_at):'未整理：認証付きの現在の口座状態を表示。整理設定の保存は未確認です。';
+}
 let paperDiagnostics=null;
 let tradePreflightBusy=false;
 let tradeAccountChoices=[];
 const statusNames={FLAT:'見送り',IN_PENDING:'仮想IN待ち',OPEN:'保有継続',OUT_PENDING:'決済待ち',CLOSED:'決済済み'};
 const reasons={OUTSIDE_MARKET_HOURS:'市場時間外のため取得・新規購入を休止',TIME_ENTRY_LOCK:'新規購入の時間外（保有管理は継続）',MARKET_CALENDAR_UNAVAILABLE:'取引カレンダーの確認待ち',ENTRY_STOPPED:'新規IN停止中',LOSS_LIMIT:'損失上限に到達',REALTIME_UNVERIFIED:'リアルタイム権限・遅延を確認できません',HALT_STATUS_UNVERIFIED:'市場停止状態を確認できません',CONTRACT_METADATA_MISSING:'契約ID・倍率が未取得',STALE_QUOTE:'気配が古いため待機',STALE_RECEIPT:'受信データが古いため待機',OUTSIDE_FILL_WINDOW:'市場時間外',DATA_MODE_MISMATCH:'有効な実相場データがありません',DATA_UNAVAILABLE:'相場データ未取得',FIXED_CONTRACT_MISMATCH:'保有契約と気配が一致しません',ASK_SIZE_MISSING_OR_EMPTY:'売り板数量が未取得または不足',BID_SIZE_MISSING_OR_EMPTY:'買い板数量が未取得または不足',CAPITAL_LIMIT:'仮想資金の購入上限超過',FORCE_EXIT:'強制終了時刻',HARD_STOP:'損失率上限',THESIS_BREAK:'売買根拠の崩れ',PROFIT_TRAIL:'RUNNER利益保護',OPPOSITE_SIGNAL:'反対方向シグナル',NO_PROGRESS:'伸びず勢いも低下',TIME_DECAY:'保有時間・勢い・利益条件',NO_VALID_FILL_BEFORE_CLOSE:'取引終了まで決済できず未解決',MANUAL_EXIT:'利用者の仮想決済要求',TIME_SCORE_OR_SPREAD:'残り時間に対するスコア・スプレッド条件未達',SIGNAL_ACCEPTED:'購入候補を受付。新しい気配を待っています',NOT_STARTED:'仮想売買は未開始'};
+Object.assign(reasons,{ACCOUNT_CONSOLIDATION:'主比較を通常版・独立判定版V66に整理したため新規購入を休止',AUXILIARY_ENTRIES_STOPPED:'STRESSは補助検証として保持し、新規購入を休止',EXISTING_ENTRY_STOP:'整理前からの新規購入停止を保持'});
 async function request(path,body){
  const requestToken=paperToken;
  const current=()=>{if(requestToken!==paperToken)throw Object.assign(Error('接続が切り替わったため以前の応答を破棄しました。'),{stalePaperRequest:true});};
@@ -34,7 +68,10 @@ async function request(path,body){
 function showAuthRequired(){
  paperAuthRequired=true;paperConnected=false;clearTimeout(paperTimer);paperToken='';
  paperSnapshot=null;paperDiagnostics=null;exitStudySnapshot=null;exitStudyAccount=null;exitStudyV2Snapshot=null;exitStudyV2Account=null;
- for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy','exitStudyV2'])el(id).replaceChildren();
+ for(const id of ['operations','position','dataQuality','comparison','groups','exitStudy','exitStudyV2','mainAccounts','retiredAccounts','auxiliaryAccounts','accountLifecycle'])el(id).replaceChildren();
+ el('retiredAccountsPanel').open=false;el('auxiliaryAccountsPanel').open=false;
+ el('organizationStatus').textContent='口座整理の保存状態は未取得です。';el('retiredAccountsCount').textContent='未取得';el('auxiliaryAccountsCount').textContent='未取得';
+ paperViewedSecondaryAccount=null;el('account').replaceChildren();
  for(const id of ['equity','cash','daily','realized','unrealized','fees','dd','uptime'])el(id).textContent='--';
  const unknown={runtime:'管理用認証が必要：PAPER状態は未確認',runtimeDetail:'実注文OFF / 認証付きの稼働状態・口座記録を取得できません。',
   dataMode:'認証付きPAPER状態は未取得',decision:'PAPER状態未確認',reason:'購入・保有・履歴は未確認です。管理用認証で再接続してください。',
@@ -46,10 +83,13 @@ function showAuthRequired(){
  for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyExport','exitStudyV2Load','exitStudyV2Export','tradePreflight'])el(id).disabled=true;
  showTradeAccountChoices([]);el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証で再接続してください。';
  if(typeof clearPerformanceReport==='function')clearPerformanceReport('管理用認証が必要：期間別の成績は未確認です。');
+ if(typeof clearOrganizationBackups==='function')clearOrganizationBackups();
+ if(typeof organizationControls==='function')organizationControls();
 }
 function lineList(target,rows){target.replaceChildren();for(const [k,v] of rows){const a=document.createElement('dt'),b=document.createElement('dd');a.textContent=k;b.textContent=v;target.append(a,b);}}
 function show(s){
  paperSnapshot=s;syncAccounts(s.accounts);const a=s.accounts[el('account').value];if(!a)throw Error('仮想口座が見つかりません');
+ showAccountOrganization(s);lineList(el('accountLifecycle'),accountManagementRows(a));
  const op=s.operations||{};const runtimeNames={SCHEDULED_WAIT:'次回の定期実行待ち',STARTING:'定期実行の開始待ち',WAITING:'サーバー起動待ち',STOPPED:'停止：実行記録が届いていません',DELAYED:'遅延：実行間隔が開いています',NEEDS_ATTENTION:'要対応：実行エラー',MARKET_CLOSED:'市場時間外',PAUSED:'新規IN停止中・保有なし',RUNNING:'サーバーの実行を受信中'};
  el('news').textContent=s.newsLabel;el('runtime').textContent=runtimeNames[op.status]||'稼働状態の確認待ち';
  el('runtimeDetail').textContent='実注文OFF / 自動PAPERの目標間隔 '+s.evaluation_seconds+'秒 / スマホ終了後の継続検証：'+(s.unattendedVerified?'確認済み':'未完了');
@@ -62,10 +102,10 @@ function show(s){
  lineList(el('dataQuality'),inactive?[]:q?[['リアルタイム資格',q.realtimeState==='VERIFIED'?'確認済み':'未確認'],['取引停止状態',q.haltState==='NOT_HALTED'?'停止なし確認済み':q.haltState==='HALTED'?'取引停止中':'未確認'],...Object.values(q.fields||{}).map(f=>[f.label,(qualityNames[f.status]||f.status)+(f.ageSeconds==null?'':' / '+Number(f.ageSeconds).toFixed(1)+'秒前・上限'+f.maxAgeSeconds+'秒')])]:[]);
  el('updated').textContent='最終実行 '+when(s.last_run)+' / 実行遅延 '+(op.status==='SCHEDULED_WAIT'?'予定休止中':s.execution_lag_seconds==null?'未確認':Number(s.execution_lag_seconds).toFixed(1)+'秒');
  for(const [id,key] of Object.entries({equity:'equity_cents',cash:'cash_cents',daily:'day_pnl_cents',realized:'realized_cents',unrealized:'unrealized_cents',fees:'fees_cents'}))el(id).textContent=usd(a[key]);
- el('dd').textContent=a.max_drawdown_pct.toFixed(2)+'%';el('uptime').textContent=percent(s.observed_uptime);
+ el('dd').textContent=typeof a.max_drawdown_pct==='number'?a.max_drawdown_pct.toFixed(2)+'%':'未取得';el('uptime').textContent=percent(s.observed_uptime);
  const p=a.position;el('contract').textContent=p?p.contract.optionSymbol+' / '+p.contract.expiration+' / '+p.contract.side+' / Strike '+p.contract.strike:'現在の保有なし';
  lineList(el('position'),p?[['仮想IN価格',p.inPrice==null?'IN待ち':'$'+p.inPrice.toFixed(4)],['現在の決済評価',p.markFresh?'$'+p.markPrice.toFixed(4):'有効気配なし（リスク評価0）'],['IN時刻',when(p.inAt)],['保有時間',duration(a.clock.holdingSec)],['契約の最終取引まで',duration(a.clock.contractRemainingSec)],['戦略の強制OUTまで',duration(a.clock.forceRemainingSec)],['観測した最大含み益',p.mfe_pct==null?'--':p.mfe_pct.toFixed(1)+'%'],['観測した最大含み損',p.mae_pct==null?'--':p.mae_pct.toFixed(1)+'%']]:[]);
- el('comparison').replaceChildren();for(const b of Object.values(s.accounts)){const tr=document.createElement('tr'),m=b.report.summary,mixed=mixedConfiguration(b.report),check='設定別で確認';for(const v of [accountLabel(b.account_id)+(b.report.configuration?'':'（設定範囲未確認）'),count(m.trades),mixed?check:winRate(m),mixed?check:dollars(m.net),dollars(m.fees),mixed?check:dollars(m.average_profit),mixed?check:dollars(m.average_loss),b.max_drawdown_pct.toFixed(2)+'%',count(b.unresolved_count)]){const td=document.createElement('td');td.textContent=v;tr.append(td);}el('comparison').append(tr);}
+ el('comparison').replaceChildren();for(const id of MAIN_ACCOUNT_IDS){const b=s.accounts[id];if(!b)continue;const tr=document.createElement('tr'),m=b.report.summary,mixed=mixedConfiguration(b.report),check='設定別で確認';for(const v of [accountLabel(id)+(b.report.configuration?'':'（設定範囲未確認）'),count(m.trades),mixed?check:winRate(m),mixed?check:dollars(m.net),dollars(m.fees),mixed?check:dollars(m.average_profit),mixed?check:dollars(m.average_loss),typeof b.max_drawdown_pct==='number'?b.max_drawdown_pct.toFixed(2)+'%':'未取得',count(b.unresolved_count)]){const td=document.createElement('td');td.textContent=v;tr.append(td);}el('comparison').append(tr);}
  showEntryFunnel(a.entry_funnel);
  showDecisionAnalysis(a.last_decision_analysis);
  showIndicatorAnalysis(a.last_indicator_analysis,s.indicatorComparison?.historyReadiness,a.clock?.marketOpen,a.core_entry_sampling||a.indicator_sampling);
@@ -86,8 +126,10 @@ function show(s){
  el('config').textContent=JSON.stringify({現在の新規購入制限:s.entry_constraints,記録開始時の固定戦略設定:a.policy,ニュース判定方針:s.newsDecisionPolicy,予定イベント判定:a.last_paper_news_risk,設定注記:'新規購入は固定戦略より厳しい60分前の制限を適用。過去の設定・残高・履歴は保持。',コード:s.code_commit,データ区分:s.data_mode,ニュース:s.newsMode,費用:'未確認・仮定値',自動最適化:'無効',事後EXIT比較:'EXIT_PLUS5M_V1：保存済み気配のみ・正式損益と分離'},null,2);
  showDiagnostics();
  for(const id of ['start','pause','exit','json','csv','journal','review','diagnose','exitStudyLoad','exitStudyV2Load'])el(id).disabled=false;
+ el('start').disabled=s.accountOrganization?.persisted!==true||!MAIN_ACCOUNT_IDS.includes(el('account').value);
  el('tradePreflight').disabled=tradePreflightBusy;
  if(typeof syncPerformanceAccounts==='function')syncPerformanceAccounts(s);
+ if(typeof organizationControls==='function')organizationControls();
 }
 async function refresh(){
  const s=await request('status');show(s);
@@ -95,6 +137,7 @@ async function refresh(){
  // Only the explicit admin maintenance route can fill history. It never ticks
  // the PAPER engine; the server enforces RTH guards and the shared retry clock.
  if(h?.missingDates?.length&&s.indicatorComparison?.registeredAccounts?.length&&
+    !(typeof organizationBusy!=='undefined'&&organizationBusy)&&
     !Object.values(s.accounts||{}).some(a=>a.clock?.marketOpen)&&
     (!h.recovery?.nextAttemptAt||Date.parse(h.recovery.nextAttemptAt)<=Date.now())){
   try{show(await request('indicator-history-recovery',{}));}
@@ -102,8 +145,13 @@ async function refresh(){
  }
  return true;
 }
-async function poll(){if(!paperConnected||paperBusy)return;const requestToken=paperToken;paperBusy=true;try{await refresh();}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;if(!paperAuthRequired)el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected&&requestToken===paperToken)paperTimer=setTimeout(poll,60000);}}
-async function command(c){try{show(await request('command',{command:c,account_id:c==='exit'?el('account').value:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;}}
+async function poll(){if(!paperConnected||paperBusy||(typeof organizationBusy!=='undefined'&&organizationBusy))return;const requestToken=paperToken;paperBusy=true;try{await refresh();}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;if(!paperAuthRequired)el('runtime').textContent='要対応：稼働状態を取得できません';}finally{paperBusy=false;if(paperConnected&&requestToken===paperToken)paperTimer=setTimeout(poll,60000);}}
+async function command(c){
+ if(typeof organizationBusy!=='undefined'&&organizationBusy){el('message').textContent='口座整理と前後照合の完了後に操作できます。';return;}
+ const selected=el('account').value;
+ if(c==='start'&&(paperSnapshot?.accountOrganization?.persisted!==true||!MAIN_ACCOUNT_IDS.includes(selected))){el('message').textContent='保存済みの口座整理を確認してから、選択中の主比較口座を開始できます。';return;}
+ try{show(await request('command',{command:c,account_id:c==='exit'||c==='start'?selected:'ALL',request_id:crypto.randomUUID()}));el('message').textContent=c==='start'?'選択口座の開始設定を保存しました。実際の稼働はサーバー実行の記録で確認してください。':'操作を保存しました。次のサーバー実行で保有管理を続けます。';}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;}
+}
 async function journalDownload(){
   const raw=[];let start=0,end=null;
   while(true){
@@ -132,7 +180,7 @@ async function download(format){
     a.href=url;a.download=data.filename;a.click();URL.revokeObjectURL(url);
   }catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;}
 }
-el('connect').addEventListener('click',async()=>{paperToken=el('token').value;paperAuthRequired=false;el('token').value='';clearTimeout(paperTimer);paperConnected=false;if(typeof clearPerformanceReport==='function')clearPerformanceReport('管理用認証を確認中…');el('tradePreflight').disabled=true;el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証を確認中…';try{const ready=await refresh();paperConnected=true;if(typeof syncPerformanceAccounts==='function')syncPerformanceAccounts(paperSnapshot);paperTimer=setTimeout(poll,60000);if(ready)el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';el('tradePreflightStatus').textContent='接続診断を実行できます。';}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;el('tradePreflightStatus').textContent='管理用認証後に実行できます。';}});
+el('connect').addEventListener('click',async()=>{paperToken=el('token').value;paperAuthRequired=false;el('token').value='';clearTimeout(paperTimer);paperConnected=false;if(typeof clearPerformanceReport==='function')clearPerformanceReport('管理用認証を確認中…');el('tradePreflight').disabled=true;el('tradePreflightResult').textContent='';el('tradePreflightStatus').textContent='管理用認証を確認中…';try{const ready=await refresh();paperConnected=true;if(typeof syncPerformanceAccounts==='function')syncPerformanceAccounts(paperSnapshot);if(typeof organizationControls==='function')organizationControls();paperTimer=setTimeout(poll,60000);if(ready)el('message').textContent='保存済みの状態を読み込みました。画面の閲覧では売買判定を起動しません。';el('tradePreflightStatus').textContent='接続診断を実行できます。';}catch(e){if(e.stalePaperRequest)return;el('message').textContent=e.message;el('tradePreflightStatus').textContent='管理用認証後に実行できます。';}});
 async function reviewExits(){
  try{const data=await request('exit-review');const target=el('exitReview');target.replaceChildren();
  const note=document.createElement('p');note.textContent='EXIT_PLUS5M_V1 / 検証不足 / 読取 '+data.coverage.journal_events_read+'ログ / 対象外の古い決済 '+data.trades_omitted+'件'+(data.coverage.older_events_may_be_omitted?' / 古い観測は読取範囲外の可能性あり':'');target.append(note);
@@ -142,7 +190,7 @@ async function reviewExits(){
  }catch(e){if(e.stalePaperRequest)return;el('exitReview').textContent=e.message;}
 }
 el('review').addEventListener('click',reviewExits);
-el('account').addEventListener('change',()=>{if(paperSnapshot)show(paperSnapshot);});
+el('account').addEventListener('change',()=>{if(MAIN_ACCOUNT_IDS.includes(el('account').value))paperViewedSecondaryAccount=null;if(paperSnapshot)show(paperSnapshot);});
 for(const [id,c] of [['start','start'],['pause','pause'],['exit','exit']])el(id).addEventListener('click',()=>command(c));
 for(const id of ['json','csv','journal'])el(id).addEventListener('click',()=>download(id));
 window.addEventListener('pagehide',()=>{paperConnected=false;clearTimeout(paperTimer);paperToken='';});
@@ -242,13 +290,14 @@ el('connect').addEventListener('click',()=>showTradeAccountChoices([]));
 
 function syncAccounts(accounts){
  const select=el('account'),selected=select.value;
- const known=Array.from(select.options).map(o=>o.value),keys=Object.keys(accounts||{});
- if(known.length===keys.length&&known.every(k=>keys.includes(k)))return;
+ const keys=Object.keys(accounts||{}),main=MAIN_ACCOUNT_IDS.filter(id=>keys.includes(id));
+ const extra=paperViewedSecondaryAccount&&keys.includes(paperViewedSecondaryAccount)?paperViewedSecondaryAccount:null;
+ const choices=main.length?[...main,...(extra&&!main.includes(extra)?[extra]:[])]:keys;
+ const known=Array.from(select.options).map(o=>o.value);
+ if(known.length===choices.length&&known.every((k,i)=>k===choices[i])){if(!choices.includes(selected))select.value=choices[0]||'';return;}
  select.replaceChildren();
- for(const key of keys){const option=document.createElement('option');option.value=key;option.textContent=accountLabel(key);select.append(option);}
- const next=keys.includes('V66_CORE_TREND_1:STANDARD')?'V66_CORE_TREND_1:STANDARD':keys.includes('V65_BALANCED_3:STANDARD')?'V65_BALANCED_3:STANDARD':'V65_TREND_RETEST_2:STANDARD';
- if(!known.includes(next)&&keys.includes(next))select.value=next;
- else if(keys.includes(selected))select.value=selected;
+ for(const key of choices){const option=document.createElement('option');option.value=key;option.textContent=accountLabel(key)+(MAIN_ACCOUNT_IDS.includes(key)?'':'（状態・過去履歴を確認中）');select.append(option);}
+ select.value=choices.includes(selected)?selected:choices[0]||'';
 }
 function reasonText(value){
  const parts=String(value||'').replace(/^INDICATOR: /,'');

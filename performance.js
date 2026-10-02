@@ -2,7 +2,7 @@
 let paperPerformanceSnapshot=null,paperPerformanceBusy=false,paperPerformanceEpoch=0;
 const performanceInputs=['performanceFrom','performanceTo','performanceAccount','performanceConfig'];
 const performanceNumber=v=>typeof v==='number'&&Number.isFinite(v);
-const performanceUSD=v=>performanceNumber(v)?'$'+v.toFixed(2):'未算出';
+const performanceUSD=v=>performanceNumber(v)?'$'+v.toFixed(2):'未取得';
 const performancePct=v=>performanceNumber(v)?(v*100).toFixed(1)+'%':'未算出';
 const performanceSeconds=v=>performanceNumber(v)?v.toFixed(2)+'秒':'未記録';
 const performanceCategory={conditions:'相場条件未達',data_missing:'必要なデータ・履歴が不足',data_stale:'データ鮮度の条件未達',contract_acquisition:'購入方向の契約候補が不足',spread_liquidity:'売買価格差・板数量・契約条件未達',risk_time_position:'資金・損失・時刻・保有の制限',internal_error:'取得・内部処理の異常'};
@@ -42,7 +42,22 @@ function syncPerformanceConfigs(){
  performanceChoices('performanceConfig',[...choices],'全設定（ハッシュ別に表示）');
 }
 function syncPerformanceAccounts(s){
- performanceChoices('performanceAccount',Object.keys(s?.accounts||{}).map(id=>[id,accountLabel(id)]),'全口座（別々に表示）');syncPerformanceConfigs();performanceControls();
+ const ids=Object.keys(s?.accounts||{}).sort((a,b)=>(MAIN_ACCOUNT_IDS.includes(a)?0:1)-(MAIN_ACCOUNT_IDS.includes(b)?0:1));
+ performanceChoices('performanceAccount',ids.map(id=>[id,accountLabel(id)+(MAIN_ACCOUNT_IDS.includes(id)?'':'（休止・補助の履歴）')]),'主比較の2口座（他口座は折りたたみ）');syncPerformanceConfigs();performanceControls();
+}
+const performancePhase=c=>({BEFORE:'口座整理前',AFTER:'口座整理後',UNRECORDED:'整理前後の時刻未記録',UNCHANGED:'整理前後の区分なし'})[c.organization_phase]||'整理前後の区分は未取得';
+function performanceMainComparison(target,data){
+ const main=(data.cohorts||[]).filter(c=>MAIN_ACCOUNT_IDS.includes(c.account_id)),rows=[];
+ performanceParagraph(target,'主比較：同じ購入市場日・集計期間。固定設定ハッシュと口座整理前後を分け、期間外の累計DDはこの表に混ぜません。','muted');
+ for(const c of main){
+  const m=c.closed||{},f=c.entry_funnel,dd=c.drawdown||{},reasons=f?Object.entries(f.reasons||{}).filter(([,n])=>Number.isSafeInteger(n)&&n>0).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([reason,n])=>reasonText(reason)+' '+n+'回').join('／')||'主要理由の記録なし':'未取得';
+  rows.push([accountLabel(c.account_id),c.config_hash||'未取得',performancePhase(c),Number.isSafeInteger(m.count)?String(m.count):'未取得',m.count===0?'未算出':performanceNumber(m.win_rate)?performancePct(m.win_rate):'未取得',performanceUSD(m.average_win_usd),performanceUSD(m.average_loss_usd),performanceUSD(m.net_usd),performanceUSD(dd.realized_closed_usd)+(performanceNumber(dd.realized_closed_pct)?' / '+dd.realized_closed_pct.toFixed(2)+'%':''),reasons]);
+ }
+ if(!data.filters?.account_id)for(const id of MAIN_ACCOUNT_IDS)if(!main.some(c=>c.account_id===id))rows.push([accountLabel(id),'未取得','未取得','未取得','未算出','未取得','未取得','未取得','未取得','未取得']);
+ if(rows.length)performanceTable(target,['口座','固定設定','整理前後','取引数（決済済み）','勝率','平均利益','平均損失','純損益','最大DD（期間内決済）','主要な見送り理由'],rows);
+ else performanceParagraph(target,'この選択条件では主比較の保存記録を未取得です。');
+ const organization=data.account_organization;
+ if(organization?.activated_at)performanceParagraph(target,'口座整理の境界 '+when(organization.activated_at)+'。購入時刻が不明の取引は整理前後に振り分けず、設定変更前後の成績もハッシュ別に表示します。','muted');
 }
 function performanceMetric(target,label,value,note=''){
  const cell=document.createElement('div'),name=document.createElement('span'),metric=document.createElement('strong');name.textContent=label;metric.textContent=value;cell.append(name,metric);
@@ -52,6 +67,7 @@ function showPerformanceFunnel(target,f,coverage){
  const details=performanceDetail(target,'観測・見送り・購入指示・約定の分母');
  const cov=coverage||f?.coverage||{};
  performanceParagraph(details,'保存されている営業日 '+(cov.retained_from||cov.retention?.first_retained_market_date||'未記録')+' ～ '+(cov.retained_to||cov.retention?.last_retained_market_date||'未記録')+'。最大45営業日の保存済み観測を使い、選択期間のすべての分・営業日を観測したことは保証しません。','reportNotice');
+ if(cov.status==='UNAVAILABLE_DAILY_AGGREGATE_CROSSES_OR_LACKS_ORGANIZATION_BOUNDARY_EVIDENCE')performanceParagraph(details,'日別の観測集計が口座整理の境界をまたぐか、日時の証拠が不足するため、整理前後の見送り理由は未取得です。同じ日別集計を両方に重複表示しません。','reportNotice');
  if(!f){performanceParagraph(details,'この期間・設定での観測集計は未記録です。過去の件数をゼロとして補完しません。');return;}
  const counts=f.counts||{},stages={candidate_detection:'購入方向の候補を検出',strategy_evaluation:'戦略条件を評価',contract_acquisition:'契約候補を取得',fresh_quote:'鮮度条件内の気配',paper_signal:'PAPER購入指示'};
  performanceParagraph(details,'対象観測 '+count(f.eligible_observations)+'回 / 全記録観測 '+count(f.total_observations)+'回 / 集計版 '+(f.version||'未記録')+'。決済取引件数とは別です。');
@@ -121,13 +137,16 @@ function showPerformance(data){
  performanceParagraph(target,'購入日（米東部） '+(filters.from_date||'記録開始')+' ～ '+(filters.to_date||'最新')+' / 集計作成 '+when(data.generated_at)+' / 元記録の更新 '+when(data.updated_at)+' / 集計版 '+(data.version||'未記録'));
  if(data.coverage)performanceParagraph(target,'購入日が未記録の取引 '+count(data.coverage.unknown_entry_period_records)+'件 / 固定設定ハッシュが未記録の取引 '+count(data.coverage.unknown_config_records)+'件。購入日不明の取引は、日付を指定した期間には振り分けません。','muted');
  if(!Array.isArray(data.cohorts)||!data.cohorts.length){performanceParagraph(target,'指定した期間・口座・固定設定に対応する保存記録がありません。損益がゼロだったとは判断しません。','reportNotice');}
+ performanceMainComparison(target,data);
+ const secondary={};
  for(const c of data.cohorts||[]){
-  const card=document.createElement('article');card.className='performanceCohort';const title=document.createElement('h3');title.textContent=accountLabel(c.account_id);card.append(title);
+  const card=document.createElement('article');card.className='performanceCohort';const title=document.createElement('h3');title.textContent=accountLabel(c.account_id)+'／'+performancePhase(c);card.append(title);
   performanceParagraph(card,'戦略 '+(strategyLabels[c.strategy]||c.strategy||'未記録')+' / 固定設定 '+(c.config_hash||'未記録'),'reportHash');
+  if(c.organization_activated_at)performanceParagraph(card,'整理日時 '+when(c.organization_activated_at)+'。口座整理前後は同じ戦略設定でも別々に集計します。','muted');
   const m=c.closed||{},o=c.open||{},dd=c.drawdown||{},metrics=document.createElement('div');metrics.className='reportMetrics';
   performanceMetric(metrics,'決済済み / 未決済',count(m.count)+' / '+count(o.count),'購入待ち '+count(o.pending_entry_count)+'件・決済待ち '+count(o.pending_exit_count)+'件・未解決 '+count(o.unresolved_count)+'件');
   performanceMetric(metrics,'勝ち / 負け / 引分け',count(m.wins)+' / '+count(m.losses)+' / '+count(m.draws),'費用込み純損益で分類。損益既知の部分：'+count(m.known_wins)+'勝・'+count(m.known_losses)+'敗・'+count(m.known_draws)+'引分け');
-  performanceMetric(metrics,'勝率',performancePct(m.win_rate),'分母：損益記録のある決済 '+count(m.win_rate_denominator)+'件');
+  performanceMetric(metrics,'勝率',m.count===0?'未算出':performanceNumber(m.win_rate)?performancePct(m.win_rate):'未取得','分母：損益記録のある決済 '+count(m.win_rate_denominator)+'件');
   performanceMetric(metrics,'費用込み純損益',performanceUSD(m.net_usd),'純損益の記録 '+performanceCoverage(m.net_coverage));
   performanceMetric(metrics,'平均利益 / 平均損失',performanceUSD(m.average_win_usd)+' / '+performanceUSD(m.average_loss_usd),'分母：純損益が既知の勝ち '+count(m.known_wins)+'件 / 負け '+count(m.known_losses)+'件');
   performanceMetric(metrics,'1決済あたりの平均純損益',performanceUSD(m.average_net_usd),'分母：損益記録のある決済 '+count(m.win_rate_denominator)+'件。期待利益の予測ではありません。');
@@ -143,7 +162,13 @@ function showPerformance(data){
   showPerformanceFunnel(card,c.entry_funnel,c.entry_funnel_coverage);showPerformanceExecution(card,c.execution);showPerformanceScore(card,c.score_study);
   showExitOutcomeEvidence(card,'実際のPAPER決済',c.exit_outcomes,'この期間・固定設定の公式PAPER記録');performancePairedExit(card,c,filters);
   if(c.cumulative?.length){const timeline=performanceDetail(card,'決済順の記録済み純損益');performanceTable(timeline,['決済時刻','純損益','累計純損益','決済だけの仮想資産'],c.cumulative.map(p=>[when(p.closed_at),performanceUSD(p.net_usd),performanceUSD(p.cumulative_net_usd),performanceUSD(p.equity_usd)]));}
-  target.append(card);
+  const group=accountGroup(paperSnapshot?.accounts?.[c.account_id],c.account_id);
+  if(group==='MAIN')target.append(card);
+  else{
+   if(!secondary[group])secondary[group]=performanceDetail(target,group==='AUXILIARY'?'補助検証の期間別成績（STRESS）':'休止口座・過去履歴の期間別成績');
+   secondary[group].append(card);
+   if((c.open?.count||c.open?.pending_entry_count||c.open?.pending_exit_count)||data.filters?.account_id===c.account_id)secondary[group].open=true;
+  }
  }
  for(const note of data.limitations||[])performanceParagraph(target,performanceNote(note),'muted');
 }
