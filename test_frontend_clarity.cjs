@@ -85,7 +85,7 @@ function paperView(reply=()=>({status:401,ok:false,json:async()=>{throw Error('A
  assert.equal(reconnect.run('paperAuthRequired'),false);assert.equal(reconnect.run('JSON.stringify(paperSnapshot)'),before);
  assert.equal(reconnect.document.getElementById('cash').textContent,currentCash);
  assert.equal(reconnect.document.getElementById('runtime').textContent,currentRuntime);
- assert.equal(reconnect.document.getElementById('start').disabled,false);
+ assert.equal(reconnect.document.getElementById('start').disabled,true,'status without durable organization cannot resume old accounts');
  assert.equal(reconnect.timers.length,0,'an old poll must not add a timer to the new connection');
  console.log('PASS: response versus current freshness/readiness, expiry and closure; 401 unknown-state clearing, disabled controls, no public account inference or polling, stale-token 401 cannot erase a reconnected account.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -30,8 +30,9 @@ snapshot.accounts[core.account_id]=core;
 const stress=structuredClone(core);stress.account_id='V66_CORE_TREND_1:STRESS';snapshot.accounts[stress.account_id]=stress;
 context.snapshot=snapshot;
 run("el('account').value='V66_CORE_TREND_1:STANDARD';show(snapshot)");
-assert.match(document.getElementById('account').options.find(o=>o.value===core.account_id).textContent,/独立トレンド版1.*通常条件/);
-assert.match(document.getElementById('account').options.find(o=>o.value===stress.account_id).textContent,/独立トレンド版1.*不利な条件/);
+assert.match(document.getElementById('account').options.find(o=>o.value===core.account_id).textContent,/独立判定版V66.*STANDARD/);
+assert.equal(document.getElementById('account').options.find(o=>o.value===stress.account_id),undefined,'STRESS is accessible through auxiliary history rather than the main selector');
+assert(document.getElementById('auxiliaryAccounts').children.some(card=>card.children[0].textContent==='独立判定版V66 · STRESS'));
 assert.match(text('indicatorAnalysis'),/基準版の80点BUYとは独立したPAPER口座/);
 assert.match(text('indicatorAnalysis'),/独立条件通過 6回・重複を除く 3枠/);
 assert.match(text('indicatorAnalysis'),/追加候補 4回/);
@@ -51,7 +52,7 @@ const zero={...core.report.summary,trades:0,win_rate:0,average_net:null,net:0,fe
 core.report.summary=zero;run('show(snapshot)');
 assert.match(text('stats'),/決済 0件.*勝率 未算出/);
 assert.doesNotMatch(text('stats'),/勝率 0.0%/);
-assert.equal(document.getElementById('comparison').children.find(r=>r.children[0].textContent.includes('独立トレンド版1')).children[2].textContent,'未算出（決済なし・記録不足）');
+assert.equal(document.getElementById('comparison').children.find(r=>r.children[0].textContent.includes('独立判定版V66')).children[2].textContent,'未算出（決済なし）');
 core.entry_funnel={version:'entry-funnel-1',observed_since:null,eligible_observations:0,valid_data_observations:0,
  valid_flat_observations:null,signals:null,fills:null,unfilled:null,unique_5m_direction_opportunities:null};
 run('show(snapshot)');assert.match(text('entryFunnel'),/観測 0回.*有効データ 0回/);

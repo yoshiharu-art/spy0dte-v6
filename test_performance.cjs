@@ -45,19 +45,19 @@ const scriptContext=dom.getInternalVMContext();
 for(const script of w.document.querySelectorAll('script[src]')){
  const asset=new URL(script.src),path=asset.pathname.slice(1);assetRequests.push(path);
  assert.equal(asset.origin,'https://example.test','HTML scripts never use external network');
- assert(['paper.js','performance.js'].includes(path),'only production HTML scripts are executed');
+ assert(['paper.js','performance.js','organize-ui.js'].includes(path),'only production HTML scripts are executed');
  assert.equal(script.defer,true,'production scripts run after the document is parsed');
  vm.runInContext(fs.readFileSync(path,'utf8'),scriptContext,{filename:path});
 }
 const settle=()=>new Promise(setImmediate),element=id=>w.document.getElementById(id);
 (async()=>{
  await settle();assert.deepEqual(scriptErrors,[],'the production HTML scripts load and execute without errors');
- assert.deepEqual(assetRequests.filter(path=>path.endsWith('.js')),['paper.js','performance.js'],'real production defer scripts execute in their declared order');
+ assert.deepEqual(assetRequests.filter(path=>path.endsWith('.js')),['paper.js','performance.js','organize-ui.js'],'real production defer scripts execute in their declared order');
  assert.equal(element('performanceLoad').disabled,true);
  element('token').value='SYNTHETIC_TEST_TOKEN';element('connect').click();await settle();
  assert.equal(element('performanceLoad').disabled,false);assert(!calls.some(c=>c.url.includes('/performance')),'connection and polling do not fetch report or run its engine');
  const cashBefore=element('cash').textContent,historyBefore=element('history').textContent;
- const overview=[...element('comparison').querySelectorAll('tr')].find(r=>r.cells[0].textContent.includes('基準版')&&r.cells[0].textContent.includes('通常条件'));
+ const overview=[...element('comparison').querySelectorAll('tr')].find(r=>r.cells[0].textContent.includes('通常版')&&r.cells[0].textContent.includes('STANDARD'));
  for(const col of [2,3,5,6])assert.equal(overview.cells[col].textContent,'設定別で確認');
  assert.match(element('stats').textContent,/固定設定が混在.*設定別で確認/);assert.match(element('stats').textContent,new RegExp(hashA));assert.match(element('stats').textContent,new RegExp(hashB));
  assert.doesNotMatch(element('stats').textContent,/勝率 0.0%|平均純損益 \$-7.00|PF 0.00/);
@@ -71,7 +71,7 @@ const settle=()=>new Promise(setImmediate),element=id=>w.document.getElementById
  const cards=w.document.querySelectorAll('.performanceCohort');assert.equal(cards.length,2);
  assert.match(cards[0].textContent,new RegExp(hashA));assert.doesNotMatch(cards[0].textContent,new RegExp(hashB));assert.match(cards[1].textContent,new RegExp(hashB));
  const metric=(card,label)=>[...card.querySelectorAll('.reportMetrics > div')].find(n=>n.querySelector('span').textContent===label);
- assert.equal(metric(cards[0],'費用込み純損益').querySelector('strong').textContent,'未算出');
+ assert.equal(metric(cards[0],'費用込み純損益').querySelector('strong').textContent,'未取得');
  assert.match(metric(cards[0],'勝率').textContent,/66.7%.*3件/);assert.match(metric(cards[0],'勝ち \/ 負け \/ 引分け').textContent,/未記録.*損益既知の部分：2勝・1敗・0引分け/);
  assert.equal(metric(cards[1],'勝率').querySelector('strong').textContent,'未算出');
  assert.match(cards[0].textContent,/0で評価.*選択した期間の外/);assert.match(cards[0].textContent,/含み損益\$12.00.*勝率・決済純損益から除外/);
