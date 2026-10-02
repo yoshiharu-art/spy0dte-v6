@@ -1,6 +1,6 @@
 'use strict';
 // Offline DOM verification; no market data, broker, real credentials or state writes.
-const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom');
+const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM,ResourceLoader,VirtualConsole}=require('jsdom');
 const state=JSON.parse(fs.readFileSync('testdata/paper-synthetic-state.json','utf8'));
 const account='V64_BASELINE_1:STANDARD',hashA='a'.repeat(64),hashB='b'.repeat(64);
 state.accounts[account].config_hash=hashA;
@@ -31,15 +31,30 @@ const cohort={cohort_id:'A',account_id:account,strategy:'V64_BASELINE_1',config_
 const other={...structuredClone(cohort),cohort_id:'B',config_hash:hashB,closed:{...closed,count:0,wins:0,losses:0,draws:0,known_wins:0,known_losses:0,known_draws:0,win_rate:null,win_rate_denominator:0,net_usd:0,known_net_usd:0,net_coverage:coverage(0,0)},entry_funnel:null,score_study:null};
 const report={ok:true,version:'paper-performance-1',generated_at:'2026-10-02T15:05:00Z',updated_at:null,
  filters:{from_date:'2026-09-29',to_date:'2026-10-02',account_id:account,config_hash:null},cohorts:[cohort,other],limitations:[]};
-const dom=new JSDOM(fs.readFileSync('paper.html','utf8'),{url:'https://example.test/paper.html',runScripts:'outside-only'}),w=dom.window,calls=[];
-w.AbortSignal={timeout:()=>undefined};w.setTimeout=()=>1;w.clearTimeout=()=>{};
+const calls=[],assetRequests=[],scriptErrors=[];
 let performanceReply=async()=>({ok:true,status:200,json:async()=>structuredClone(report)});
-w.fetch=async(url,options={})=>{calls.push({url,options});if(url.includes('/performance'))return performanceReply();
+const reply=async(url,options={})=>{calls.push({url,options});if(url.includes('/performance'))return performanceReply();
  return {ok:true,status:200,json:async()=>url.endsWith('health')?{adminConfigured:true}:url.includes('exit-study-v2?')?{spec:{version:'EXIT_STUDY_2'},study_hash:'FIXED_HASH',period:{from_date:'2026-09-29',to_date:'2026-10-02',unknown_date_excluded:0},groups:{},portfolios:{},history_scope:'RECENT_COMPLETED_CHECKPOINT',portfolio_scope:'UNAVAILABLE_FOR_FILTERED_PERIOD'}:structuredClone(state)};};
-w.eval(fs.readFileSync('paper.js','utf8'));w.eval(fs.readFileSync('performance.js','utf8'));
+class LocalAssets extends ResourceLoader{
+ fetch(url){
+  const asset=new URL(url),path=asset.pathname.slice(1);assetRequests.push(path);
+  assert.equal(asset.origin,'https://example.test','HTML assets never use external network');
+  assert(['paper.js','performance.js','paper.css'].includes(path),'only production HTML assets are loaded');
+  return Promise.resolve(Buffer.from(fs.readFileSync(path)));
+ }
+}
+const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>scriptErrors.push(error));
+// Load the real defer scripts through the document loader. Separate eval calls
+// create private lexical scopes and cannot model classic browser script globals.
+const dom=new JSDOM(fs.readFileSync('paper.html','utf8'),{url:'https://example.test/paper.html',runScripts:'dangerously',resources:new LocalAssets(),virtualConsole,
+ beforeParse(window){window.AbortSignal={timeout:()=>undefined};window.setTimeout=()=>1;window.clearTimeout=()=>{};window.fetch=reply;
+  window.addEventListener('error',event=>scriptErrors.push(event.error||Error(event.message)));}}),w=dom.window;
+const loaded=new Promise(resolve=>w.addEventListener('load',resolve,{once:true}));
 const settle=()=>new Promise(setImmediate),element=id=>w.document.getElementById(id);
 (async()=>{
- await settle();assert.equal(element('performanceLoad').disabled,true);
+ await loaded;await settle();assert.deepEqual(scriptErrors,[],'the production HTML scripts load and execute without errors');
+ assert.deepEqual(assetRequests.filter(path=>path.endsWith('.js')),['paper.js','performance.js'],'real production defer scripts execute in their declared order');
+ assert.equal(element('performanceLoad').disabled,true);
  element('token').value='SYNTHETIC_TEST_TOKEN';element('connect').click();await settle();
  assert.equal(element('performanceLoad').disabled,false);assert(!calls.some(c=>c.url.includes('/performance')),'connection and polling do not fetch report or run its engine');
  const cashBefore=element('cash').textContent,historyBefore=element('history').textContent;
@@ -83,5 +98,6 @@ const settle=()=>new Promise(setImmediate),element=id=>w.document.getElementById
  element('performanceLoad').click();await settle();assert.match(element('performanceStatus').textContent,/認証.*未確認/);
  assert.equal(element('performanceReport').textContent,'');assert.equal(element('performanceLoad').disabled,true);assert.equal(element('performanceExport').disabled,true);assert.equal(element('cash').textContent,'--');
  assert(!w.document.body.textContent.includes('SYNTHETIC_TEST_TOKEN'));
+ assert.deepEqual(scriptErrors,[],'full authenticated flow has no browser script errors');
  console.log('PASS: performance authenticated GET, inclusive ET filters, config separation, missing versus zero, known-net denominators, conservative DD, unrealized separation, score/VIXY evidence, filtered paired exit read, no state writes, filter-race rejection and 401 clearing.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
