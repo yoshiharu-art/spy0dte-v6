@@ -1,6 +1,6 @@
 'use strict';
 // Offline DOM verification; no market data, broker, real credentials or state writes.
-const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM,ResourceLoader,VirtualConsole}=require('jsdom');
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom');
 const state=JSON.parse(fs.readFileSync('testdata/paper-synthetic-state.json','utf8'));
 const account='V64_BASELINE_1:STANDARD',hashA='a'.repeat(64),hashB='b'.repeat(64);
 state.accounts[account].config_hash=hashA;
@@ -35,24 +35,23 @@ const calls=[],assetRequests=[],scriptErrors=[];
 let performanceReply=async()=>({ok:true,status:200,json:async()=>structuredClone(report)});
 const reply=async(url,options={})=>{calls.push({url,options});if(url.includes('/performance'))return performanceReply();
  return {ok:true,status:200,json:async()=>url.endsWith('health')?{adminConfigured:true}:url.includes('exit-study-v2?')?{spec:{version:'EXIT_STUDY_2'},study_hash:'FIXED_HASH',period:{from_date:'2026-09-29',to_date:'2026-10-02',unknown_date_excluded:0},groups:{},portfolios:{},history_scope:'RECENT_COMPLETED_CHECKPOINT',portfolio_scope:'UNAVAILABLE_FOR_FILTERED_PERIOD'}:structuredClone(state)};};
-class LocalAssets extends ResourceLoader{
- fetch(url){
-  const asset=new URL(url),path=asset.pathname.slice(1);assetRequests.push(path);
-  assert.equal(asset.origin,'https://example.test','HTML assets never use external network');
-  assert(['paper.js','performance.js','paper.css'].includes(path),'only production HTML assets are loaded');
-  return Promise.resolve(Buffer.from(fs.readFileSync(path)));
- }
+// Execute the scripts declared by the actual HTML in JSDOM's shared context.
+// Classic browser scripts share this global lexical environment; separate eval
+// calls cannot model it. No optional resource-loader API or network is used.
+const dom=new JSDOM(fs.readFileSync('paper.html','utf8'),{url:'https://example.test/paper.html',runScripts:'outside-only'}),w=dom.window;
+w.AbortSignal={timeout:()=>undefined};w.setTimeout=()=>1;w.clearTimeout=()=>{};w.fetch=reply;
+w.addEventListener('error',event=>scriptErrors.push(event.error||Error(event.message)));
+const scriptContext=dom.getInternalVMContext();
+for(const script of w.document.querySelectorAll('script[src]')){
+ const asset=new URL(script.src),path=asset.pathname.slice(1);assetRequests.push(path);
+ assert.equal(asset.origin,'https://example.test','HTML scripts never use external network');
+ assert(['paper.js','performance.js'].includes(path),'only production HTML scripts are executed');
+ assert.equal(script.defer,true,'production scripts run after the document is parsed');
+ vm.runInContext(fs.readFileSync(path,'utf8'),scriptContext,{filename:path});
 }
-const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>scriptErrors.push(error));
-// Load the real defer scripts through the document loader. Separate eval calls
-// create private lexical scopes and cannot model classic browser script globals.
-const dom=new JSDOM(fs.readFileSync('paper.html','utf8'),{url:'https://example.test/paper.html',runScripts:'dangerously',resources:new LocalAssets(),virtualConsole,
- beforeParse(window){window.AbortSignal={timeout:()=>undefined};window.setTimeout=()=>1;window.clearTimeout=()=>{};window.fetch=reply;
-  window.addEventListener('error',event=>scriptErrors.push(event.error||Error(event.message)));}}),w=dom.window;
-const loaded=new Promise(resolve=>w.addEventListener('load',resolve,{once:true}));
 const settle=()=>new Promise(setImmediate),element=id=>w.document.getElementById(id);
 (async()=>{
- await loaded;await settle();assert.deepEqual(scriptErrors,[],'the production HTML scripts load and execute without errors');
+ await settle();assert.deepEqual(scriptErrors,[],'the production HTML scripts load and execute without errors');
  assert.deepEqual(assetRequests.filter(path=>path.endsWith('.js')),['paper.js','performance.js'],'real production defer scripts execute in their declared order');
  assert.equal(element('performanceLoad').disabled,true);
  element('token').value='SYNTHETIC_TEST_TOKEN';element('connect').click();await settle();
