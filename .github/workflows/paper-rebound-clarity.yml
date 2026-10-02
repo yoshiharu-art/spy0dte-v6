@@ -30,7 +30,7 @@ jobs:
         run: |
           for test_file in test_*.cjs; do
             case "$test_file" in
-              test_trial.cjs|test_paper.cjs|test_retry.cjs|test_frontend_clarity.cjs|test_core_comparison.cjs) continue ;;
+              test_trial.cjs|test_paper.cjs|test_retry.cjs|test_frontend_clarity.cjs|test_core_comparison.cjs|test_performance.cjs) continue ;;
             esac
             node "$test_file"
           done

@@ -1,5 +1,5 @@
-const CACHE = 'spy0dte-v66-paper-core-trend-21';
-const ASSETS = ['./','./index.html','./news-ui.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./paper.html','./paper.js','./paper.css'];
+const CACHE = 'spy0dte-v66-paper-performance-22';
+const ASSETS = ['./','./index.html','./news-ui.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./paper.html','./paper.js','./performance.js','./paper.css'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>Promise.all(ASSETS.map(url=>cache.add(url).catch(()=>null)))));self.skipWaiting();});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('spy0dte-')&&k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
 self.addEventListener('fetch',event=>{
