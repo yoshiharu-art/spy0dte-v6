@@ -14,7 +14,7 @@ from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 
-ASSETS = ('paper.html', 'paper.js', 'performance.js', 'organize-ui.js', 'paper.css', 'sw.js')
+ASSETS = ('index.html', 'signal.js', 'signal.css', 'paper.html', 'sw.js', 'manifest.webmanifest')
 PUBLIC_BASE = 'https://yoshiharu-art.github.io/spy0dte-v6/'
 MAX_ASSET_BYTES = 2 * 1024 * 1024
 
@@ -100,3 +100,4 @@ def main(argv=None):
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
