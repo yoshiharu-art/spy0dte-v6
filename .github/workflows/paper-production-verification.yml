@@ -1,0 +1,68 @@
+name: PAPER public production artifact verification
+
+on:
+  pull_request:
+    paths:
+      - verify_public_release.py
+      - test_public_release.py
+      - .github/workflows/paper-production-verification.yml
+  push:
+    branches: [main]
+    paths:
+      - paper.html
+      - paper.js
+      - performance.js
+      - organize-ui.js
+      - paper.css
+      - sw.js
+      - verify_public_release.py
+      - test_public_release.py
+      - .github/workflows/paper-production-verification.yml
+  workflow_run:
+    workflows: [pages build and deployment]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paper-public-verification-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verifier-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check exact matches, stale JavaScript and retrieval errors without network
+        run: python -m unittest -v test_public_release
+  public-assets:
+    needs: verifier-tests
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify public Pages assets against this source commit
+        env:
+          VERIFICATION_SOURCE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: python verify_public_release.py --expected-commit "$VERIFICATION_SOURCE_SHA" --max-wait-seconds 180 --report public-release-verification.json
+      - name: Upload public asset verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-public-release-${{ github.event.workflow_run.head_sha || github.sha }}
+          path: public-release-verification.json
+          if-no-files-found: warn
