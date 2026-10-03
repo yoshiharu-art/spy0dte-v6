@@ -2,7 +2,7 @@
   "name": "spy0dte-v64-ui-tests",
   "private": true,
   "scripts": {
-    "test": "node test_trial.cjs && node test_paper.cjs && node test_retry.cjs && node test_frontend_clarity.cjs && node test_core_comparison.cjs && node test_performance.cjs && node test_account_organization_contract.cjs && node test_account_organization.cjs",
+    "test": "node test_trial.cjs && node test_paper.cjs && node test_retry.cjs && node test_frontend_clarity.cjs && node test_core_comparison.cjs && node test_performance.cjs && node test_account_organization_contract.cjs && node test_account_organization.cjs && node test_expired_position_ui.cjs",
     "test:journal": "node test_journal_export.cjs"
   },
   "devDependencies": {

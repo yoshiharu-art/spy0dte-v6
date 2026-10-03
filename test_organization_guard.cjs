@@ -13,7 +13,7 @@ function harness(failure){
  const el=id=>{if(!nodes.has(id))nodes.set(id,{disabled:true,textContent:'',addEventListener(){}});return nodes.get(id);};
  const ctx=vm.createContext({el,MAIN_ACCOUNT_IDS:main,JSON,Date,Number,Object,Array,Error,URL,Blob,crypto,
  paperConnected:true,paperToken:'SYNTHETIC_PRIVATE_TOKEN',paperSnapshot:{accounts:before.accounts},paperTimer:null,
- clearTimeout(){},setTimeout(){return 1;},poll(){},window:{addEventListener(){}},
+ clearTimeout(){},setTimeout(){return 1;},poll(){},selectedPositionProtected(){return false;},window:{addEventListener(){}},
  show(s){ctx.paperSnapshot=s;},request:async(path,body)=>{
   requests.push({path,body});
   if(path==='export?format=json')return {state:structuredClone(requests.some(r=>r.path==='command')?after:before)};
