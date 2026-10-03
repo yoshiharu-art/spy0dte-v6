@@ -26,7 +26,7 @@ function performanceControls(){
  for(const id of performanceInputs)el(id).disabled=!connected||paperPerformanceBusy;
 }
 function clearPerformanceReport(message='条件が変わりました。保存記録で成績を更新してください。'){
- paperPerformanceEpoch++;paperPerformanceSnapshot=null;el('performanceReport').replaceChildren();el('performanceStatus').textContent=message;performanceControls();
+ paperPerformanceEpoch++;paperPerformanceSnapshot=null;paperPerformanceBusy=false;el('performanceReport').replaceChildren();el('performanceStatus').textContent=message;performanceControls();
 }
 function performanceChoices(id,rows,placeholder){
  const select=el(id),selected=select.value;select.replaceChildren();
@@ -182,7 +182,7 @@ async function loadPerformance(){
  const epoch=++paperPerformanceEpoch;paperPerformanceSnapshot=null;paperPerformanceBusy=true;el('performanceReport').replaceChildren();el('performanceStatus').textContent='保存済みの期間別成績を読み込み中…';performanceControls();
  try{const data=await request('performance'+(query.size?'?'+query:''));if(epoch!==paperPerformanceEpoch||!paperConnected)return;paperPerformanceSnapshot=data;showPerformance(data);syncPerformanceConfigs();el('performanceStatus').textContent='保存記録の成績を取得しました。購入条件・資金・損失制限は変更していません。';}
  catch(e){if(e.stalePaperRequest||epoch!==paperPerformanceEpoch)return;el('performanceStatus').textContent=e.message;}
- finally{paperPerformanceBusy=false;performanceControls();}
+ finally{if(epoch===paperPerformanceEpoch){paperPerformanceBusy=false;performanceControls();}}
 }
 for(const id of performanceInputs)el(id).addEventListener('change',()=>{clearPerformanceReport();if(id==='performanceAccount')syncPerformanceConfigs();});
 el('performanceLoad').addEventListener('click',loadPerformance);
