@@ -1,4 +1,4 @@
-name: PAPER public production artifact verification
+name: Indicator manual public artifact verification
 
 on:
   pull_request:
@@ -9,6 +9,9 @@ on:
   push:
     branches: [main]
     paths:
+      - index.html
+      - signal.js
+      - signal.css
       - paper.html
       - paper.js
       - performance.js
@@ -66,3 +69,4 @@ jobs:
           name: paper-public-release-${{ github.event.workflow_run.head_sha || github.sha }}
           path: public-release-verification.json
           if-no-files-found: warn
+

@@ -1,4 +1,4 @@
-name: PAPER comparison verification
+name: Indicator manual UI verification
 on:
   push:
     branches:
@@ -25,12 +25,6 @@ jobs:
         run: npm install --ignore-scripts
       - name: Run default regression suite
         run: npm test
-      - name: Run remaining UI regressions
-        if: always()
-        run: |
-          for test_file in test_*.cjs; do
-            case "$test_file" in
-              test_trial.cjs|test_paper.cjs|test_retry.cjs|test_frontend_clarity.cjs|test_core_comparison.cjs|test_performance.cjs) continue ;;
-            esac
-            node "$test_file"
-          done
+      - name: Run public artifact verifier tests
+        run: python3 -m unittest -v test_public_release
+

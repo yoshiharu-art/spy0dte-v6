@@ -33,17 +33,17 @@ class PublicReleaseTests(unittest.TestCase):
 
     def test_stale_js_fails_even_when_html_matches(self):
         def stale(url, timeout):
-            return b'old release' if urlsplit(url).path.endswith('/organize-ui.js') else self.fetch(url, timeout)
+            return b'old release' if urlsplit(url).path.endswith('/signal.js') else self.fetch(url, timeout)
         result = verify_attempt(self.root, PUBLIC_BASE, 'a' * 40, 1, time.monotonic() + 60, stale)
         self.assertFalse(result['matched'])
         failed = [row for row in result['assets'] if row['status'] != 'MATCHED']
-        self.assertEqual([row['asset'] for row in failed], ['organize-ui.js'])
+        self.assertEqual([row['asset'] for row in failed], ['signal.js'])
         self.assertEqual(failed[0]['status'], 'MISMATCH')
         self.assertNotEqual(failed[0]['expected_sha256'], failed[0]['public_sha256'])
 
     def test_http_error_is_unverified_instead_of_match(self):
         def error(url, timeout):
-            if urlsplit(url).path.endswith('/paper.html'):
+            if urlsplit(url).path.endswith('/index.html'):
                 raise ValueError('HTTP 404')
             return self.fetch(url, timeout)
         result = verify_attempt(self.root, PUBLIC_BASE, 'a' * 40, 1, time.monotonic() + 60, error)
@@ -54,3 +54,4 @@ class PublicReleaseTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
