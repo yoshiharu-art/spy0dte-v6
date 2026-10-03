@@ -2,8 +2,9 @@
 // Authentication is inherited from request(); backups never contain the token.
 let organizationBusy=false,organizationBackups=null;
 function organizationControls(){
- el('connect').disabled=organizationBusy;
- el('token').disabled=organizationBusy;
+ const connecting=typeof paperConnecting!=='undefined'&&paperConnecting;
+ el('connect').disabled=organizationBusy||connecting;
+ el('token').disabled=organizationBusy||connecting;
  el('organizeAccounts').disabled=organizationBusy||!paperConnected||!paperToken||paperSnapshot?.accountOrganization?.persisted===true;
  el('organizationExport').disabled=organizationBusy||!organizationBackups||!paperConnected;
  el('start').disabled=organizationBusy||!paperConnected||paperSnapshot?.accountOrganization?.persisted!==true||!MAIN_ACCOUNT_IDS.includes(el('account').value)||selectedPositionProtected();
