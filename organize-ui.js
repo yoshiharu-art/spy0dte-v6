@@ -6,8 +6,9 @@ function organizationControls(){
  el('token').disabled=organizationBusy;
  el('organizeAccounts').disabled=organizationBusy||!paperConnected||!paperToken||paperSnapshot?.accountOrganization?.persisted===true;
  el('organizationExport').disabled=organizationBusy||!organizationBackups||!paperConnected;
- el('start').disabled=organizationBusy||!paperConnected||paperSnapshot?.accountOrganization?.persisted!==true||!MAIN_ACCOUNT_IDS.includes(el('account').value);
- for(const id of ['pause','exit'])el(id).disabled=organizationBusy||!paperConnected;
+ el('start').disabled=organizationBusy||!paperConnected||paperSnapshot?.accountOrganization?.persisted!==true||!MAIN_ACCOUNT_IDS.includes(el('account').value)||selectedPositionProtected();
+ el('pause').disabled=organizationBusy||!paperConnected;
+ el('exit').disabled=organizationBusy||!paperConnected||selectedPositionProtected();
 }
 function clearOrganizationBackups(){
  organizationBackups=null;organizationBusy=false;organizationControls();
